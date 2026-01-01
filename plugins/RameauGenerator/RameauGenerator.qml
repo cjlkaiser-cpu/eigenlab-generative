@@ -324,7 +324,7 @@ MuseScore {
                 Slider {
                     id: chordsSlider
                     Layout.fillWidth: true
-                    from: 4; to: 16; stepSize: 1; value: 8
+                    from: 4; to: 32; stepSize: 1; value: 8
                     onValueChanged: numChords = value
                 }
             }

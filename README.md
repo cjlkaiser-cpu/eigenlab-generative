@@ -9,26 +9,50 @@ eigenlab-instruments/     → Plugins de AUDIO (VST3/AU, JUCE/C++)
 eigenlab-generative/      → Plugins de PARTITURA (MuseScore, QML/JS)
 ```
 
-Los plugins de `eigenlab-instruments` generan sonido en DAWs.
-Los plugins de `eigenlab-generative` generan notas en MuseScore.
+## Estado Actual
 
-## Plugins
-
-| Plugin | Descripcion | Estado |
-|--------|-------------|--------|
-| **RameauGenerator** | Genera progresiones armonicas SATB con cadenas de Markov | En desarrollo |
+| Plugin | Version | Estado |
+|--------|---------|--------|
+| **RameauGenerator** | 0.2.0 | Funcional - SATB |
 
 ## Instalacion
-
-### MuseScore 4.4+
 
 ```bash
 # Copiar plugins al directorio de MuseScore
 cp -r plugins/* ~/Documents/MuseScore4/Plugins/
 
-# Reiniciar MuseScore y habilitar en:
-# Menu → Plugins → Manage Plugins
+# En MuseScore 4:
+# Home → Complementos → Activar RameauGenerator
 ```
+
+## RameauGenerator
+
+Generador de progresiones armonicas basado en cadenas de Markov con gravedad tonal.
+
+### Caracteristicas (v0.2.0)
+
+- Generacion SATB en 4 pentagramas separados
+- Cadenas de Markov con matriz de transicion empirica (Bach/Mozart)
+- Gravedad tonal: control caos ↔ estructura
+- Modos mayor y menor armonico
+- Cadencia autentica (V-I) opcional
+- Voice leading con evitacion de paralelas
+- 10 tonalidades (C, G, D, A, E, B, F, Bb, Eb, Ab)
+
+### Uso
+
+1. Crear partitura SATB (4 pentagramas: Soprano, Alto, Tenor, Bajo)
+2. Home → Complementos → RameauGenerator
+3. Configurar tonalidad, modo, numero de acordes
+4. Ajustar gravedad tonal (caotico ↔ estricto)
+5. Click "Previsualizar" para ver progresion
+6. Click "Generar" para escribir en partitura
+
+### Limitaciones Conocidas
+
+- Cifrado americano y grados romanos solo en preview (API MuseScore 4 pendiente)
+- No soporta inversiones aun
+- No genera ritmo variado (solo redondas)
 
 ## Arquitectura
 
@@ -36,75 +60,39 @@ cp -r plugins/* ~/Documents/MuseScore4/Plugins/
 eigenlab-generative/
 ├── plugins/
 │   └── RameauGenerator/
-│       ├── RameauGenerator.qml      # Plugin principal
-│       ├── MarkovEngine.js          # Motor de Markov (de Rameau Machine)
-│       ├── VoiceLeading.js          # Reglas SATB
-│       ├── Chords.js                # Definiciones de acordes
-│       └── manifest.json            # Metadatos del plugin
+│       ├── RameauGenerator.qml   # Plugin principal (todo inline)
+│       ├── MarkovEngine.js       # Motor Markov (referencia)
+│       ├── VoiceLeading.js       # Voice leading (referencia)
+│       └── Chords.js             # Acordes (referencia)
 ├── README.md
+├── ROADMAP.md
 └── CLAUDE.md
 ```
 
-## RameauGenerator
-
-Basado en el motor de [Rameau Machine](../EigenLab/Physics/Physics%20Sound%20Lab/generativos/rameau-machine/), genera progresiones armonicas usando:
-
-- **Cadenas de Markov** con matriz de transicion por grado
-- **Gravedad tonal** que modifica probabilidades segun tension
-- **Voice Leading SATB** estricto (evita paralelas, cruces)
-- **Cadencias** detectadas y forzadas (autentica, plagal, rota)
-
-### Uso
-
-1. Crear partitura con 4 pentagramas (SATB) o Grand Staff
-2. Seleccionar compases vacios
-3. Ejecutar plugin: Menu → Plugins → EigenLab → Rameau Generator
-4. Configurar: tonalidad, numero de acordes, estilo
-5. Click "Generar"
-
-### Parametros
-
-| Parametro | Descripcion | Valores |
-|-----------|-------------|---------|
-| Tonalidad | Clave de la progresion | C, G, D, F, Bb, etc. |
-| Modo | Mayor o menor | major, minor |
-| Acordes | Numero de acordes a generar | 4-32 |
-| Gravedad | Control caos/estructura | 0.0 (caos) - 1.0 (estricto) |
-| Estilo | Reglas de voice leading | barroco, clasico, romantico, jazz |
+> Nota: Los archivos .js son referencia. El codigo esta integrado en el .qml
+> porque MuseScore 4.4 no carga imports externos correctamente.
 
 ## Roadmap
 
-### v0.1 - MVP
-- [ ] Generar progresion basica I-IV-V-I
-- [ ] Voice leading SATB funcional
-- [ ] UI minima (tonalidad, # acordes)
+Ver [ROADMAP.md](ROADMAP.md) para el plan completo de desarrollo.
 
-### v0.2 - Markov completo
-- [ ] Matriz de transicion completa (7 grados)
-- [ ] Gravedad tonal dinamica
-- [ ] Modo menor
+### Proximas versiones
 
-### v0.3 - Cadencias
-- [ ] Detectar/forzar cadencias
-- [ ] Semicadencias
-- [ ] Cadencia rota (deceptiva)
-
-### v1.0 - Release
-- [ ] Presets de estilo
-- [ ] Exportar configuracion
-- [ ] Documentacion completa
+- **v0.3** - Analisis armonico en partitura
+- **v0.4** - Modo guitarra (tablatura + acordes)
+- **v0.5** - Modo piano (gran staff optimizado)
+- **v1.0** - Release estable con presets
 
 ## Tecnologias
 
-- **QML** - Framework de UI de MuseScore
+- **QML** - UI declarativa de Qt/MuseScore
 - **JavaScript ES7** - Logica del motor
-- **MuseScore Plugin API** - Manipulacion de partitura
+- **MuseScore Plugin API 4.x** - Manipulacion de partitura
 
-## Relacionados
+## Referencias
 
-- [Rameau Machine](../EigenLab/Physics/Physics%20Sound%20Lab/generativos/rameau-machine/) - App web generativa (origen del motor)
-- [Contrapunctus](../EigenLab/Physics/Physics%20Sound%20Lab/generativos/contrapunctus/) - Ejercicios de contrapunto
-- [eigenlab-instruments](../eigenlab-instruments/) - Plugins de audio VST3/AU
+- [MuseScore Plugin API](https://musescore.github.io/MuseScore_PluginAPI_Docs/plugins/html/)
+- [Rameau Machine](https://github.com/...) - App web origen del motor
 
 ## Licencia
 

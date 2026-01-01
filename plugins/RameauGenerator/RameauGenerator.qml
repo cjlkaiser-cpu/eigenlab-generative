@@ -470,36 +470,14 @@ MuseScore {
                 }
             }
 
-            // Añadir cifrado americano (encima de Soprano)
-            var cursorHarmony = curScore.newCursor();
-            cursorHarmony.track = 0;
-            cursorHarmony.rewind(0);
-
+            // TODO: Añadir análisis armónico cuando se resuelva API MuseScore 4
+            // Por ahora mostrar en preview
+            var chordNames = [];
             for (var i = 0; i < prog.length; i++) {
-                if (cursorHarmony.segment) {
-                    var harmony = newElement(Element.HARMONY);
-                    harmony.text = degreeToChordName(prog[i], selectedKey);
-                    cursorHarmony.add(harmony);
-                    cursorHarmony.next();
-                }
+                chordNames.push(degreeToChordName(prog[i], selectedKey));
             }
 
-            // Añadir grados romanos (debajo de Bajo)
-            var cursorDegree = curScore.newCursor();
-            cursorDegree.track = 12;  // Bajo
-            cursorDegree.rewind(0);
-
-            for (var i = 0; i < prog.length; i++) {
-                if (cursorDegree.segment) {
-                    var text = newElement(Element.STAFF_TEXT);
-                    text.text = prog[i];
-                    text.placement = Placement.BELOW;
-                    cursorDegree.add(text);
-                    cursorDegree.next();
-                }
-            }
-
-            previewText.text = "SATB: " + prog.join(" → ");
+            previewText.text = prog.join("-") + "\n" + chordNames.join("-");
         } else {
             // MODO ACORDES: 1 pentagrama (comportamiento original)
             var cursor = curScore.newCursor();

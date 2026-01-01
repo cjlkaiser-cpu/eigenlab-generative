@@ -9,79 +9,126 @@ eigenlab-instruments/     → Plugins de AUDIO (VST3/AU, JUCE/C++)
 eigenlab-generative/      → Plugins de PARTITURA (MuseScore, QML/JS)
 ```
 
-## Estado Actual
+## Plugins Disponibles
 
-| Plugin | Version | Estado |
-|--------|---------|--------|
-| **RameauGenerator** | 0.2.0 | Funcional - SATB |
+| Plugin | Version | Instrumento | Estado |
+|--------|---------|-------------|--------|
+| [RameauGenerator](plugins/RameauGenerator/) | 0.2.0 | SATB (4 voces) | Funcional |
+| [RameauGuitar](plugins/RameauGuitar/) | 0.1.0 | Guitarra clasica | Alpha |
+| [RameauPiano](plugins/RameauPiano/) | 0.1.0 | Piano (grand staff) | Alpha |
 
 ## Instalacion
 
 ```bash
-# Copiar plugins al directorio de MuseScore
+# Copiar todos los plugins
 cp -r plugins/* ~/Documents/MuseScore4/Plugins/
 
-# En MuseScore 4:
-# Home → Complementos → Activar RameauGenerator
+# O copiar individualmente
+cp -r plugins/RameauGenerator ~/Documents/MuseScore4/Plugins/
+cp -r plugins/RameauGuitar ~/Documents/MuseScore4/Plugins/
+cp -r plugins/RameauPiano ~/Documents/MuseScore4/Plugins/
+
+# Reiniciar MuseScore 4
+# Home → Complementos → Activar los plugins deseados
 ```
 
-## RameauGenerator
+---
 
-Generador de progresiones armonicas basado en cadenas de Markov con gravedad tonal.
+## RameauGenerator (SATB)
 
-### Caracteristicas (v0.2.0)
+Generador de progresiones a 4 voces para coro o cuarteto.
 
-- Generacion SATB en 4 pentagramas separados
-- Cadenas de Markov con matriz de transicion empirica (Bach/Mozart)
-- Gravedad tonal: control caos ↔ estructura
-- Modos mayor y menor armonico
-- Cadencia autentica (V-I) opcional
+**Caracteristicas:**
+- 4 pentagramas separados (Soprano, Alto, Tenor, Bajo)
+- Cadenas de Markov con gravedad tonal
 - Voice leading con evitacion de paralelas
-- 10 tonalidades (C, G, D, A, E, B, F, Bb, Eb, Ab)
+- Hasta 32 acordes
 
-### Uso
+**Uso:** Crear partitura con 4 pentagramas SATB
 
-1. Crear partitura SATB (4 pentagramas: Soprano, Alto, Tenor, Bajo)
-2. Home → Complementos → RameauGenerator
-3. Configurar tonalidad, modo, numero de acordes
-4. Ajustar gravedad tonal (caotico ↔ estricto)
-5. Click "Previsualizar" para ver progresion
-6. Click "Generar" para escribir en partitura
+---
 
-### Limitaciones Conocidas
+## RameauGuitar
 
-- Cifrado americano y grados romanos solo en preview (API MuseScore 4 pendiente)
-- No soporta inversiones aun
-- No genera ritmo variado (solo redondas)
+Generador de progresiones para guitarra clasica.
+
+**Caracteristicas:**
+- Un solo pentagrama
+- Voicings adaptados a guitarra (max 4 notas)
+- Rango E2-C5
+- Tonalidades guitarristicas: E, A, D, G, C, Am, Em, Dm
+
+**Uso:** Crear partitura de guitarra (1 pentagrama)
+
+---
+
+## RameauPiano
+
+Generador de progresiones para piano.
+
+**Caracteristicas:**
+- Grand staff (2 pentagramas)
+- LH: Bass + Tenor (clave de Fa)
+- RH: Alto + Soprano (clave de Sol)
+- Voice leading con minimo movimiento
+
+**Uso:** Crear partitura de piano (grand staff)
+
+---
 
 ## Arquitectura
 
 ```
 eigenlab-generative/
 ├── plugins/
-│   └── RameauGenerator/
-│       ├── RameauGenerator.qml   # Plugin principal (todo inline)
-│       ├── MarkovEngine.js       # Motor Markov (referencia)
-│       ├── VoiceLeading.js       # Voice leading (referencia)
-│       └── Chords.js             # Acordes (referencia)
+│   ├── RameauGenerator/
+│   │   ├── RameauGenerator.qml
+│   │   └── *.js (referencia)
+│   ├── RameauGuitar/
+│   │   ├── RameauGuitar.qml
+│   │   └── README.md
+│   └── RameauPiano/
+│       ├── RameauPiano.qml
+│       └── README.md
 ├── README.md
 ├── ROADMAP.md
 └── CLAUDE.md
 ```
 
-> Nota: Los archivos .js son referencia. El codigo esta integrado en el .qml
-> porque MuseScore 4.4 no carga imports externos correctamente.
+> **Nota:** Todo el codigo esta inline en los .qml porque MuseScore 4.4 no carga imports .js correctamente.
+
+## Motor Comun
+
+Todos los plugins comparten el mismo motor de Markov:
+
+```javascript
+// Matriz de transicion (fragmento)
+'I':  { 'ii': 0.15, 'IV': 0.25, 'V': 0.30, 'vi': 0.15, ... }
+'V':  { 'I': 0.70, 'vi': 0.14, ... }  // V→I dominante
+```
+
+**Caracteristicas comunes:**
+- Gravedad tonal configurable (libre ↔ estricto)
+- Modos mayor y menor
+- Cadencia V-I opcional
+- Preview antes de generar
 
 ## Roadmap
 
-Ver [ROADMAP.md](ROADMAP.md) para el plan completo de desarrollo.
+Ver [ROADMAP.md](ROADMAP.md) para el plan completo.
 
-### Proximas versiones
+### Proximos pasos
 
-- **v0.3** - Analisis armonico en partitura
-- **v0.4** - Modo guitarra (tablatura + acordes)
-- **v0.5** - Modo piano (gran staff optimizado)
-- **v1.0** - Release estable con presets
+| Plugin | Siguiente version |
+|--------|-------------------|
+| RameauGenerator | v0.3 - Honestidad en nombres |
+| RameauGuitar | v0.2 - Validacion de voicings tocables |
+| RameauPiano | v0.2 - Duplicacion de octavas |
+
+### Plugins futuros
+
+- **RameauAnalysis** - Analiza partituras existentes
+- **RameauJazz** - Acordes de 7a, 9a, sustituciones
 
 ## Tecnologias
 

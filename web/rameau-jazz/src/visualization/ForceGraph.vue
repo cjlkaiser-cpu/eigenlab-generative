@@ -79,7 +79,9 @@ function updateSize() {
 
   if (simulation) {
     simulation.force('center', d3.forceCenter(width.value / 2, height.value / 2))
-    simulation.alpha(0.3).restart()
+    simulation.force('x', d3.forceX(width.value / 2).strength(0.05))
+    simulation.force('y', d3.forceY(height.value / 2).strength(0.05))
+    simulation.alpha(0.5).restart()
   }
 }
 
@@ -96,15 +98,17 @@ function initGraph() {
   // Preparar datos
   prepareData()
 
-  // Crear simulacion
+  // Crear simulacion - más esparcida y centrada
   simulation = d3.forceSimulation(nodes.value)
     .force('link', d3.forceLink(links.value)
       .id(d => d.id)
-      .distance(80)
-      .strength(0.5))
-    .force('charge', d3.forceManyBody().strength(-200))
+      .distance(100)
+      .strength(0.3))
+    .force('charge', d3.forceManyBody().strength(-400))
     .force('center', d3.forceCenter(width.value / 2, height.value / 2))
-    .force('collision', d3.forceCollide().radius(30))
+    .force('collision', d3.forceCollide().radius(40))
+    .force('x', d3.forceX(width.value / 2).strength(0.05))
+    .force('y', d3.forceY(height.value / 2).strength(0.05))
 
   // Dibujar
   drawLinks()
@@ -181,22 +185,22 @@ function drawNodes() {
       harmonyStore.previewChord(d.id, harmonyStore.key)
     })
 
-  // Circulo de fondo
+  // Circulo de fondo - más grande
   nodeEnter.append('circle')
-    .attr('r', d => 15 + d.tension * 10)
+    .attr('r', d => 22 + d.tension * 8)
     .attr('fill', d => d.color)
-    .attr('fill-opacity', 0.2)
+    .attr('fill-opacity', 0.15)
     .attr('stroke', d => d.color)
-    .attr('stroke-width', 2)
+    .attr('stroke-width', 2.5)
     .attr('class', 'node-circle')
 
-  // Texto
+  // Texto - más grande
   nodeEnter.append('text')
     .text(d => d.label)
     .attr('text-anchor', 'middle')
     .attr('dy', '0.35em')
     .attr('fill', '#e6edf3')
-    .attr('font-size', '10px')
+    .attr('font-size', '11px')
     .attr('font-weight', '600')
     .attr('pointer-events', 'none')
 }

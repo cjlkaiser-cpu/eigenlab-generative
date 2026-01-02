@@ -397,13 +397,13 @@ onUnmounted(() => {
 
 .export-menu {
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 0;
-  margin-top: 4px;
+  margin-bottom: 4px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4);
   min-width: 180px;
   z-index: 100;
   overflow: hidden;

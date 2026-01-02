@@ -26,8 +26,8 @@ MuseScore {
     // ========== CONSTANTES PIANO ==========
 
     // Rangos por mano
-    property var leftHandRange:  { min: 36, max: 60 }   // C2 - C4
-    property var rightHandRange: { min: 55, max: 84 }   // G3 - C6
+    property var leftHandRange:  ({ min: 36, max: 60 })   // C2 - C4
+    property var rightHandRange: ({ min: 55, max: 84 })   // G3 - C6
 
     // ========== DATOS DE ACORDES ==========
 

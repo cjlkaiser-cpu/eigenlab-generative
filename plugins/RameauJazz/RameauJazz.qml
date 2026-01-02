@@ -8,6 +8,8 @@
  * v0.2: Walking bass opcional
  * v0.3: Blue Note style (double chromatic, enclosures, corcheas swing)
  * v0.4: Tresillos swing + Comping RH (Charleston, Anticipation, etc.)
+ * v0.5: Dominantes secundarios (V7/ii, V7/V), acordes de paso dim7
+ * v0.6: Presets de estilo (Bebop, Bossa Nova, Modal, Ballad)
  *
  * Basado en el motor de Markov de RameauGenerator.
  */
@@ -21,7 +23,7 @@ MuseScore {
     id: plugin
     title: "Rameau Jazz"
     description: "Genera progresiones jazz con acordes de 7a y voicings"
-    version: "0.4.0"
+    version: "0.6.0"
     pluginType: "dialog"
 
     width: 400
@@ -56,6 +58,7 @@ MuseScore {
 
     // Cada grado tiene: tipo de acorde por defecto, tension, funcion
     property var jazzDegrees: ({
+        // Acordes diatonicos
         'Imaj7':   { type: 'maj7', root: 0, func: 'T', tension: 0.0 },
         'Imaj9':   { type: 'maj9', root: 0, func: 'T', tension: 0.0 },
         'I6':      { type: '6', root: 0, func: 'T', tension: 0.0 },
@@ -70,25 +73,61 @@ MuseScore {
         'V7alt':   { type: '7alt', root: 7, func: 'D', tension: 0.9 },
         'VIm7':    { type: 'm7', root: 9, func: 'T', tension: 0.2 },
         'VIIm7b5': { type: 'm7b5', root: 11, func: 'D', tension: 0.7 },
-        'bII7':    { type: '7', root: 1, func: 'D', tension: 0.85 },  // Sustituto tritono
+
+        // Sustitutos tritono
+        'bII7':    { type: '7', root: 1, func: 'D', tension: 0.85 },
         'bVII7':   { type: '7', root: 10, func: 'SD', tension: 0.5 },
-        '#IVm7b5': { type: 'm7b5', root: 6, func: 'SD', tension: 0.6 }
+        '#IVm7b5': { type: 'm7b5', root: 6, func: 'SD', tension: 0.6 },
+
+        // v0.5: DOMINANTES SECUNDARIOS
+        'V7/ii':   { type: '7', root: 9, func: 'secD', tension: 0.7 },   // A7 en C → Dm
+        'V7/V':    { type: '7', root: 2, func: 'secD', tension: 0.7 },   // D7 en C → G
+        'V7/IV':   { type: '7', root: 0, func: 'secD', tension: 0.6 },   // C7 en C → F
+        'V7/vi':   { type: '7', root: 4, func: 'secD', tension: 0.7 },   // E7 en C → Am
+
+        // v0.5: ii-V SECUNDARIOS (related ii)
+        'iiø/ii':  { type: 'm7b5', root: 4, func: 'secSD', tension: 0.5 },  // Em7b5 → A7 → Dm
+        'iiø/V':   { type: 'm7b5', root: 9, func: 'secSD', tension: 0.5 },  // Am7b5 → D7 → G
+
+        // v0.5: ACORDES DIMINUIDOS DE PASO
+        '#Idim7':  { type: 'dim7', root: 1, func: 'pass', tension: 0.6 },   // C#dim7: I → ii
+        '#IVdim7': { type: 'dim7', root: 6, func: 'pass', tension: 0.6 },   // F#dim7: IV → V
+        'bIIIdim7':{ type: 'dim7', root: 3, func: 'pass', tension: 0.6 }    // Ebdim7: iii → ii
     })
 
     // ========== MATRIZ DE TRANSICION JAZZ ==========
 
-    // Centrada en ii-V-I con sustituciones
+    // Centrada en ii-V-I con sustituciones y dominantes secundarios
     property var jazzTransitions: ({
-        'Imaj7':   { 'Imaj7': 0.05, 'IIm7': 0.25, 'IIIm7': 0.05, 'IVmaj7': 0.20, 'V7': 0.10, 'VIm7': 0.20, 'VIIm7b5': 0.05, 'bII7': 0.05, '#IVm7b5': 0.05 },
-        'IIm7':    { 'Imaj7': 0.05, 'IIm7': 0.02, 'IIIm7': 0.03, 'IVmaj7': 0.05, 'V7': 0.65, 'VIm7': 0.05, 'VIIm7b5': 0.05, 'bII7': 0.10 },
-        'IIIm7':   { 'Imaj7': 0.05, 'IIm7': 0.05, 'IVmaj7': 0.15, 'V7': 0.10, 'VIm7': 0.55, 'VIIm7b5': 0.10 },
-        'IVmaj7':  { 'Imaj7': 0.15, 'IIm7': 0.15, 'IIIm7': 0.10, 'IVmaj7': 0.05, 'V7': 0.35, 'VIm7': 0.05, 'VIIm7b5': 0.10, '#IVm7b5': 0.05 },
-        'V7':      { 'Imaj7': 0.60, 'IIm7': 0.05, 'IIIm7': 0.02, 'IVmaj7': 0.03, 'V7': 0.05, 'VIm7': 0.20, 'bVII7': 0.05 },
-        'VIm7':    { 'Imaj7': 0.10, 'IIm7': 0.35, 'IIIm7': 0.05, 'IVmaj7': 0.20, 'V7': 0.20, 'VIm7': 0.05, 'VIIm7b5': 0.05 },
-        'VIIm7b5': { 'Imaj7': 0.10, 'IIm7': 0.10, 'IIIm7': 0.60, 'IVmaj7': 0.05, 'V7': 0.10, 'VIm7': 0.05 },
-        'bII7':    { 'Imaj7': 0.85, 'IIm7': 0.05, 'VIm7': 0.10 },  // Resuelve a I
-        'bVII7':   { 'Imaj7': 0.30, 'IVmaj7': 0.40, 'VIm7': 0.30 },
-        '#IVm7b5': { 'IVmaj7': 0.50, 'V7': 0.40, 'Imaj7': 0.10 }
+        // Acordes diatonicos
+        'Imaj7':   { 'Imaj7': 0.03, 'IIm7': 0.15, 'IIIm7': 0.05, 'IVmaj7': 0.15, 'V7': 0.08, 'VIm7': 0.15,
+                     'V7/ii': 0.12, '#Idim7': 0.10, 'V7/vi': 0.08, 'iiø/ii': 0.05, 'V7/IV': 0.04 },
+        'IIm7':    { 'Imaj7': 0.03, 'V7': 0.55, 'bII7': 0.15, 'V7/V': 0.10, '#IVdim7': 0.07, 'VIIm7b5': 0.05, 'IVmaj7': 0.05 },
+        'IIIm7':   { 'IIm7': 0.10, 'IVmaj7': 0.15, 'VIm7': 0.45, 'bIIIdim7': 0.15, 'V7/vi': 0.10, 'VIIm7b5': 0.05 },
+        'IVmaj7':  { 'Imaj7': 0.10, 'IIm7': 0.15, 'IIIm7': 0.08, 'V7': 0.30, '#IVdim7': 0.15, 'VIm7': 0.07, '#IVm7b5': 0.05, 'V7/V': 0.10 },
+        'V7':      { 'Imaj7': 0.55, 'VIm7': 0.20, 'IIm7': 0.05, 'IVmaj7': 0.05, 'bVII7': 0.05, 'V7/ii': 0.05, 'IIIm7': 0.05 },
+        'VIm7':    { 'Imaj7': 0.08, 'IIm7': 0.30, 'IVmaj7': 0.15, 'V7': 0.15, 'V7/ii': 0.15, 'iiø/ii': 0.10, 'VIIm7b5': 0.07 },
+        'VIIm7b5': { 'IIIm7': 0.50, 'V7': 0.15, 'Imaj7': 0.10, 'IIm7': 0.10, 'IVmaj7': 0.10, 'VIm7': 0.05 },
+
+        // Sustitutos tritono
+        'bII7':    { 'Imaj7': 0.80, 'VIm7': 0.10, 'IIm7': 0.05, 'IVmaj7': 0.05 },
+        'bVII7':   { 'Imaj7': 0.25, 'IVmaj7': 0.40, 'VIm7': 0.25, 'IIm7': 0.10 },
+        '#IVm7b5': { 'IVmaj7': 0.40, 'V7': 0.40, 'Imaj7': 0.10, '#IVdim7': 0.10 },
+
+        // v0.5: DOMINANTES SECUNDARIOS - resuelven a su target
+        'V7/ii':   { 'IIm7': 0.75, 'bII7': 0.10, 'V7': 0.10, 'Imaj7': 0.05 },   // A7 → Dm
+        'V7/V':    { 'V7': 0.75, 'IIm7': 0.10, 'bII7': 0.10, 'Imaj7': 0.05 },   // D7 → G7
+        'V7/IV':   { 'IVmaj7': 0.75, 'IIm7': 0.10, 'Imaj7': 0.10, 'V7': 0.05 }, // C7 → F
+        'V7/vi':   { 'VIm7': 0.75, 'IIm7': 0.10, 'IVmaj7': 0.10, 'V7': 0.05 },  // E7 → Am
+
+        // v0.5: ii RELACIONADOS - preceden al dominante secundario
+        'iiø/ii':  { 'V7/ii': 0.80, 'IIm7': 0.10, 'V7': 0.05, 'Imaj7': 0.05 },  // Em7b5 → A7
+        'iiø/V':   { 'V7/V': 0.80, 'V7': 0.10, 'IIm7': 0.05, 'Imaj7': 0.05 },   // Am7b5 → D7
+
+        // v0.5: DIMINUIDOS DE PASO - conectan cromaticamente
+        '#Idim7':  { 'IIm7': 0.85, 'V7/ii': 0.10, 'Imaj7': 0.05 },   // C#dim → Dm
+        '#IVdim7': { 'V7': 0.85, 'IIm7': 0.10, 'Imaj7': 0.05 },      // F#dim → G7
+        'bIIIdim7':{ 'IIm7': 0.85, 'IIIm7': 0.10, 'V7': 0.05 }       // Ebdim → Dm
     })
 
     // ========== ESTILOS DE VOICING ==========
@@ -125,6 +164,65 @@ MuseScore {
 
     // Probabilidades de variacion en comping
     property real probCompingVariation: 0.30  // 30% varia el patron
+
+    // ========== v0.6 PRESETS DE ESTILO ==========
+
+    property var stylePresets: ["Standard", "Bebop", "Bossa Nova", "Modal", "Ballad"]
+    property int selectedStylePreset: 0
+
+    // Configuracion por preset (se aplica al generar)
+    // Standard: configuracion por defecto
+    // Bebop: rapido, alterados, muchas sustituciones
+    // Bossa Nova: straight feel, maj9/m9, menos tension
+    // Modal: menos cambios, acordes diatonicos
+    // Ballad: lento, extensiones, voice leading suave
+
+    function applyStylePreset() {
+        if (selectedStylePreset === 0) {
+            // STANDARD - configuracion por defecto
+            probSwingTriplet = 0.25;
+            probDoubleChromatic = 0.20;
+            probEnclosure = 0.15;
+            selectedComplexity = 0;  // 7as
+
+        } else if (selectedStylePreset === 1) {
+            // BEBOP - rapido, alterados, sustituciones
+            probSwingTriplet = 0.40;       // Mas swing
+            probDoubleChromatic = 0.35;    // Mas cromatismo
+            probEnclosure = 0.25;          // Mas enclosures
+            selectedComplexity = 2;        // Mixto (7as y 9as)
+            // Preferir acordes alterados
+            useAlteredDominants = true;
+
+        } else if (selectedStylePreset === 2) {
+            // BOSSA NOVA - straight, suave, maj9/m9
+            probSwingTriplet = 0.0;        // Sin swing (straight feel)
+            probDoubleChromatic = 0.10;    // Poco cromatismo
+            probEnclosure = 0.05;          // Pocos enclosures
+            selectedComplexity = 1;        // 9as (maj9, m9)
+            // Comping mas sparse
+            probCompingVariation = 0.50;
+
+        } else if (selectedStylePreset === 3) {
+            // MODAL - menos cambios, diatonico
+            probSwingTriplet = 0.20;
+            probDoubleChromatic = 0.05;    // Minimo cromatismo
+            probEnclosure = 0.05;
+            selectedComplexity = 0;        // 7as basicas
+            // Menos sustituciones (se aplica en matriz)
+
+        } else if (selectedStylePreset === 4) {
+            // BALLAD - lento, extensiones, suave
+            probSwingTriplet = 0.15;       // Poco swing
+            probDoubleChromatic = 0.15;
+            probEnclosure = 0.10;
+            selectedComplexity = 1;        // 9as
+            // Comping mas legato
+            probCompingVariation = 0.20;
+        }
+    }
+
+    property bool useAlteredDominants: false  // Para Bebop
 
     // ========== ESTADO ==========
 
@@ -187,7 +285,7 @@ MuseScore {
     }
 
     function maybeUpgradeChord(chord) {
-        if (selectedComplexity === 0) return chord;  // Solo 7as
+        if (selectedComplexity === 0 && !useAlteredDominants) return chord;  // Solo 7as
 
         var upgrades = {
             'Imaj7': 'Imaj9',
@@ -195,6 +293,16 @@ MuseScore {
             'IVmaj7': 'IVmaj9',
             'V7': selectedComplexity === 2 && Math.random() > 0.5 ? 'V13' : 'V9'
         };
+
+        // BEBOP: usar acordes alterados en dominantes
+        if (useAlteredDominants) {
+            var dominantChords = ['V7', 'V7/ii', 'V7/V', 'V7/IV', 'V7/vi', 'bII7'];
+            if (dominantChords.indexOf(chord) >= 0 && Math.random() > 0.5) {
+                // 50% de usar V7alt en lugar del dominante
+                if (chord === 'V7') return 'V7alt';
+                // Para secundarios, mantener el 7 pero el voicing sera mas tenso
+            }
+        }
 
         if (selectedComplexity === 1 && upgrades[chord]) {
             return upgrades[chord];
@@ -679,19 +787,39 @@ MuseScore {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: "#302010" }
 
-            // Tonalidad
-            ColumnLayout {
+            // Tonalidad y Estilo
+            RowLayout {
                 Layout.fillWidth: true
-                spacing: 4
-                Text { text: "Tonalidad"; font.pixelSize: 11; color: "#a08040" }
-                ComboBox {
-                    id: keyCombo
+                spacing: 12
+
+                ColumnLayout {
                     Layout.fillWidth: true
-                    model: keys
-                    currentIndex: 0
-                    onCurrentTextChanged: selectedKey = currentText
-                    background: Rectangle { color: "#1a1408"; radius: 4 }
-                    contentItem: Text { text: keyCombo.currentText; color: "#f0c040"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    spacing: 4
+                    Text { text: "Tonalidad"; font.pixelSize: 11; color: "#a08040" }
+                    ComboBox {
+                        id: keyCombo
+                        Layout.fillWidth: true
+                        model: keys
+                        currentIndex: 0
+                        onCurrentTextChanged: selectedKey = currentText
+                        background: Rectangle { color: "#1a1408"; radius: 4 }
+                        contentItem: Text { text: keyCombo.currentText; color: "#f0c040"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Estilo (v0.6)"; font.pixelSize: 11; color: "#40a080" }
+                    ComboBox {
+                        id: styleCombo
+                        Layout.fillWidth: true
+                        model: stylePresets
+                        currentIndex: 0
+                        onCurrentIndexChanged: selectedStylePreset = currentIndex
+                        background: Rectangle { color: "#081a14"; radius: 4 }
+                        contentItem: Text { text: styleCombo.currentText; color: "#40f0a0"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
                 }
             }
 
@@ -906,6 +1034,9 @@ MuseScore {
     // ========== ESCRIBIR EN PARTITURA ==========
 
     function writeToScore() {
+        // Aplicar preset de estilo antes de generar
+        applyStylePreset();
+
         if (!curScore) {
             previewText.text = "Error: No hay partitura abierta";
             previewText.color = "#ff4040";

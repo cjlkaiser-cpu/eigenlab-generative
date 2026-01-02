@@ -4,7 +4,7 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 
 ## Estado
 
-**Version:** 0.4.0 (Alpha)
+**Version:** 0.6.0 (Alpha)
 
 ## Caracteristicas
 
@@ -83,6 +83,38 @@ Beat:    1       2       3    &    4
 Notas:   D       E       A    Bb   F#   (con corcheas en 3-&)
          root   escalar  5ª  ghost  approach
 ```
+
+### Implementado (v0.5.0) - Dominantes Secundarios
+
+- **V7/ii** (A7 en C): resuelve a IIm7 (Dm7)
+- **V7/V** (D7 en C): resuelve a V7 (G7)
+- **V7/IV** (C7 en C): resuelve a IVmaj7 (Fmaj7)
+- **V7/vi** (E7 en C): resuelve a VIm7 (Am7)
+
+#### ii-V Secundarios (cadenas extendidas)
+
+| Cadena | Acordes | Ejemplo en C |
+|--------|---------|--------------|
+| ii-V/ii | iiø/ii → V7/ii → IIm7 | Em7b5 → A7 → Dm7 |
+| ii-V/V | iiø/V → V7/V → V7 | Am7b5 → D7 → G7 |
+
+#### Acordes Diminuidos de Paso
+
+| Acorde | Funcion | Ejemplo |
+|--------|---------|---------|
+| #Idim7 | I → ii | Cmaj7 → C#dim7 → Dm7 |
+| #IVdim7 | IV → V | Fmaj7 → F#dim7 → G7 |
+| bIIIdim7 | iii → ii | Em7 → Ebdim7 → Dm7 |
+
+### Implementado (v0.6.0) - Presets de Estilo
+
+| Preset | Swing | Alterados | Complejidad | Caracter |
+|--------|-------|-----------|-------------|----------|
+| **Standard** | 25% | No | 7as | Balance jazz clasico |
+| **Bebop** | 40% | Si | Mixto | Rapido, sustituciones |
+| **Bossa Nova** | 0% | No | 9as | Straight, brasileno |
+| **Modal** | 20% | No | 7as | Menos cambios, diatonico |
+| **Ballad** | 15% | No | 9as | Lento, extensiones |
 
 ### Progresiones tipicas generadas
 
@@ -189,18 +221,22 @@ Turnarounds:
 - [x] Silencios ritmicos entre acordes
 - [x] Selector UI para estilo de comping
 
-### v0.5.0 - Mas Sustituciones
+### v0.5.0 - Mas Sustituciones ✓
 
-- [ ] Dominantes secundarios (V7/ii, V7/V)
-- [ ] Acordes de paso diminuidos
-- [ ] Cadenas de ii-V
+- [x] Dominantes secundarios: V7/ii, V7/V, V7/IV, V7/vi
+- [x] ii relacionados: iiø/ii → V7/ii, iiø/V → V7/V (cadenas ii-V secundarias)
+- [x] Acordes de paso diminuidos: #Idim7 (I→ii), #IVdim7 (IV→V), bIIIdim7 (iii→ii)
+- [x] Matriz de transicion actualizada con resoluciones correctas
 
-### v0.6.0 - Estilos
+### v0.6.0 - Estilos ✓
 
-- [ ] Preset: Bebop (rapido, alterados)
-- [ ] Preset: Modal (menos cambios)
-- [ ] Preset: Bossa Nova (brasileno)
-- [ ] Preset: Ballad (lento, extensiones)
+- [x] Preset: **Standard** (configuracion por defecto)
+- [x] Preset: **Bebop** (rapido, 40% swing, alterados, sustituciones)
+- [x] Preset: **Bossa Nova** (straight feel, maj9/m9, suave)
+- [x] Preset: **Modal** (menos cambios, diatonico)
+- [x] Preset: **Ballad** (lento, extensiones, poco swing)
+- [x] Selector UI para estilo
+- [x] `applyStylePreset()` configura probabilidades automaticamente
 
 ### v1.0.0 - Release
 
@@ -240,6 +276,8 @@ Turnarounds:
 
 ## Changelog
 
+- **02 ene 2026**: v0.6.0 - Presets de estilo (Bebop, Bossa Nova, Modal, Ballad)
+- **02 ene 2026**: v0.5.0 - Dominantes secundarios (V7/ii, V7/V), acordes dim7 de paso
 - **02 ene 2026**: v0.4.0 - Tresillos swing + Comping RH (Charleston, Anticipation, etc.)
 - **02 ene 2026**: v0.3.0 - Blue Note style: double chromatic, enclosures, corcheas swing
 - **02 ene 2026**: v0.2.0 - Walking bass con 4 patrones y aproximaciones

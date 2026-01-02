@@ -16,6 +16,7 @@ eigenlab-generative/      → Plugins de PARTITURA (MuseScore, QML/JS)
 | [RameauGenerator](plugins/RameauGenerator/) | 0.2.0 | SATB (4 voces) | Funcional |
 | [RameauGuitar](plugins/RameauGuitar/) | 0.3.0 | Guitarra clasica | Funcional |
 | [RameauPiano](plugins/RameauPiano/) | 0.3.0 | Piano (grand staff) | Funcional |
+| [RameauJazz](plugins/RameauJazz/) | 0.1.0 | Piano jazz | Alpha |
 
 ## Instalacion
 
@@ -80,6 +81,20 @@ Generador de progresiones para piano.
 
 ---
 
+## RameauJazz
+
+Generador de progresiones jazz con acordes de 7a y 9a.
+
+**Caracteristicas:**
+- Acordes: maj7, m7, 7, m7b5, 9, 13, 7alt
+- Progresiones ii-V-I con sustituciones
+- **Voicings:** Shell, Drop 2, Rootless A/B, Block
+- Sustituto tritono (bII7)
+
+**Uso:** Crear partitura de piano (grand staff)
+
+---
+
 ## Arquitectura
 
 ```
@@ -128,6 +143,7 @@ Ver [ROADMAP.md](ROADMAP.md) para el plan completo.
 | RameauGenerator | v0.3 - Honestidad en nombres |
 | RameauGuitar | v0.4 - Posiciones CAGED |
 | RameauPiano | v0.4 - Sincronizacion LH/RH |
+| RameauJazz | v0.2 - Walking bass |
 
 ### Plugins futuros
 

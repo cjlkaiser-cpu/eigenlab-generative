@@ -2,8 +2,8 @@
  * PdfExporter.js - Export lead sheets in authentic Real Book style
  *
  * Features:
- * - Treble clef + key signature + time signature
- * - Chord symbols above staff (handwritten style)
+ * - Clean staff lines with proper spacing
+ * - Chord symbols above staff
  * - Slash notation for rhythm
  * - Professional layout like the original Real Book
  */
@@ -14,25 +14,25 @@ import { jsPDF } from 'jspdf'
 const PAGE = {
   width: 215.9,
   height: 279.4,
-  marginLeft: 18,
-  marginRight: 18,
-  marginTop: 20,
-  marginBottom: 15
+  marginLeft: 20,
+  marginRight: 20,
+  marginTop: 25,
+  marginBottom: 20
 }
 
 // Staff configuration
 const STAFF = {
-  lineSpacing: 2.2,      // Space between staff lines
-  height: 8.8,           // Total staff height (4 spaces)
-  systemSpacing: 32,     // Space between systems
+  lineSpacing: 2,        // Space between staff lines
+  height: 8,             // Total staff height (4 spaces)
+  systemSpacing: 28,     // Space between systems
   barsPerLine: 4,
-  clefWidth: 12,         // Space for clef + key sig + time sig
+  clefWidth: 8,          // Minimal space before first bar
   barLinePadding: 3
 }
 
 // Colors
-const INK = '#1a1a1a'
-const GRAY = '#555555'
+const INK = '#000000'
+const GRAY = '#666666'
 
 /**
  * Main export function
@@ -86,37 +86,26 @@ export function exportToPdf({
 function drawHeader(doc, { title, style, composer, tempo }, startY) {
   let y = startY
 
-  // Style indicator (top left, in parentheses)
-  doc.setFontSize(9)
-  doc.setFont('times', 'italic')
-  doc.setTextColor(GRAY)
-  doc.text(`(${style} ♩=${tempo})`, PAGE.marginLeft, y)
-
   // Title - centered, bold, large
-  doc.setFontSize(22)
-  doc.setFont('times', 'bold')
+  doc.setFontSize(20)
+  doc.setFont('helvetica', 'bold')
   doc.setTextColor(INK)
-  const titleText = title.toUpperCase()
-  doc.text(titleText, PAGE.width / 2, y, { align: 'center' })
+  doc.text(title, PAGE.width / 2, y, { align: 'center' })
 
-  // Composer - right aligned
+  y += 6
+
+  // Composer - centered under title
   doc.setFontSize(10)
-  doc.setFont('times', 'italic')
+  doc.setFont('helvetica', 'italic')
   doc.setTextColor(GRAY)
-  doc.text(`- ${composer}`, PAGE.width - PAGE.marginRight, y, { align: 'right' })
+  doc.text(`${composer}`, PAGE.width / 2, y, { align: 'center' })
 
   y += 4
 
-  // Decorative double line under title
-  const titleWidth = doc.getTextWidth(titleText)
-  const lineStart = (PAGE.width - titleWidth) / 2 - 10
-  const lineEnd = (PAGE.width + titleWidth) / 2 + 10
-
-  doc.setDrawColor(INK)
-  doc.setLineWidth(0.8)
-  doc.line(lineStart, y, lineEnd, y)
-  doc.setLineWidth(0.3)
-  doc.line(lineStart, y + 1.5, lineEnd, y + 1.5)
+  // Style and tempo - centered
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`${style} - ${tempo} BPM`, PAGE.width / 2, y, { align: 'center' })
 
   y += 10
 
@@ -167,16 +156,7 @@ function drawAllSystems(doc, progression, { startY, contentWidth, barWidth, bars
  * Draw a single system (one line of music)
  */
 function drawSystem(doc, progression, { startMeasure, numMeasures, x, y, barWidth, key, isFirstSystem, isLastSystem }) {
-  let currentX = x
-
-  // Draw clef, key sig, time sig on first system
-  if (isFirstSystem) {
-    currentX = drawClefAndSignatures(doc, x, y, key)
-  } else {
-    // Just draw clef on subsequent systems
-    currentX = drawTrebleClef(doc, x, y)
-    currentX += 4
-  }
+  let currentX = x + STAFF.clefWidth
 
   // Draw staff lines
   const staffWidth = numMeasures * barWidth
@@ -192,7 +172,7 @@ function drawSystem(doc, progression, { startMeasure, numMeasures, x, y, barWidt
     const isLastMeasure = isLastSystem && i === numMeasures - 1
 
     // Draw chord symbol above staff
-    drawChordSymbol(doc, chord, measureX + 2, y - 4, key)
+    drawChordSymbol(doc, chord, measureX + 3, y - 3, key)
 
     // Draw slash notation
     drawSlashNotation(doc, measureX, y, barWidth)
@@ -200,112 +180,16 @@ function drawSystem(doc, progression, { startMeasure, numMeasures, x, y, barWidt
     // Draw bar line at end of measure
     const barLineX = measureX + barWidth
     drawBarLine(doc, barLineX, y, isLastMeasure)
-
-    // Draw measure number (every 4 measures or at start of line)
-    if ((startMeasure + i) % 4 === 0 || i === 0) {
-      doc.setFontSize(7)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(GRAY)
-      doc.text(`${startMeasure + i + 1}`, measureX + 1, y + STAFF.height + 5)
-      doc.setTextColor(INK)
-    }
   }
-}
 
-/**
- * Draw treble clef, key signature, and time signature
- */
-function drawClefAndSignatures(doc, x, y, key) {
-  let currentX = x
-
-  // Draw treble clef
-  currentX = drawTrebleClef(doc, currentX, y)
-
-  // Draw key signature
-  currentX = drawKeySignature(doc, currentX, y, key)
-
-  // Draw time signature (4/4)
-  currentX = drawTimeSignature(doc, currentX, y)
-
-  return currentX + 2
-}
-
-/**
- * Draw treble clef (stylized G clef)
- */
-function drawTrebleClef(doc, x, y) {
-  doc.setFontSize(28)
-  doc.setFont('times', 'normal')
+  // Draw measure number at start of line
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(GRAY)
+  doc.text(`${startMeasure + 1}`, x, y + STAFF.height / 2 + 1)
   doc.setTextColor(INK)
-
-  // Use Unicode treble clef
-  doc.text('𝄞', x, y + 6)
-
-  return x + 8
 }
 
-/**
- * Draw key signature (sharps or flats)
- */
-function drawKeySignature(doc, x, y, key) {
-  const keySignatures = {
-    'C': { sharps: 0, flats: 0 },
-    'G': { sharps: 1, flats: 0 },
-    'D': { sharps: 2, flats: 0 },
-    'A': { sharps: 3, flats: 0 },
-    'E': { sharps: 4, flats: 0 },
-    'B': { sharps: 5, flats: 0 },
-    'Gb': { sharps: 0, flats: 6 },
-    'F': { sharps: 0, flats: 1 },
-    'Bb': { sharps: 0, flats: 2 },
-    'Eb': { sharps: 0, flats: 3 },
-    'Ab': { sharps: 0, flats: 4 },
-    'Db': { sharps: 0, flats: 5 }
-  }
-
-  const keySig = keySignatures[key] || { sharps: 0, flats: 0 }
-
-  doc.setFontSize(14)
-  doc.setFont('times', 'normal')
-
-  // Sharp positions (F, C, G, D, A, E, B)
-  const sharpYOffsets = [0, 3, -0.5, 2.5, 5.5, 1.5, 4.5]
-  // Flat positions (B, E, A, D, G, C, F)
-  const flatYOffsets = [4, 1, 4.5, 1.5, 5, 2, 5.5]
-
-  let currentX = x
-
-  if (keySig.sharps > 0) {
-    for (let i = 0; i < keySig.sharps; i++) {
-      const yOffset = sharpYOffsets[i] * (STAFF.lineSpacing / 2)
-      doc.text('♯', currentX, y + yOffset + 2)
-      currentX += 2.5
-    }
-  } else if (keySig.flats > 0) {
-    for (let i = 0; i < keySig.flats; i++) {
-      const yOffset = flatYOffsets[i] * (STAFF.lineSpacing / 2)
-      doc.text('♭', currentX, y + yOffset + 2)
-      currentX += 2.5
-    }
-  }
-
-  return currentX + 2
-}
-
-/**
- * Draw time signature
- */
-function drawTimeSignature(doc, x, y) {
-  doc.setFontSize(14)
-  doc.setFont('times', 'bold')
-  doc.setTextColor(INK)
-
-  // Draw 4/4
-  doc.text('4', x + 1, y + 2.5)
-  doc.text('4', x + 1, y + 6.5)
-
-  return x + 6
-}
 
 /**
  * Draw 5 staff lines
@@ -344,9 +228,8 @@ function drawBarLine(doc, x, y, isDouble) {
 function drawChordSymbol(doc, chord, x, y, globalKey) {
   const symbol = degreeToChordSymbol(chord.degree, chord.key || globalKey)
 
-  // Use Times for handwritten look
-  doc.setFontSize(12)
-  doc.setFont('times', 'italic')
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
   doc.setTextColor(INK)
   doc.text(symbol, x, y)
 }
@@ -407,19 +290,19 @@ function degreeToChordSymbol(degree, key) {
   const noteIndex = (keyIndex + rootOffset) % 12
   const rootNote = notes[noteIndex]
 
-  // Format quality for Real Book style
+  // Format quality - use ASCII only for PDF compatibility
   quality = quality
     .replace('maj7', 'maj7')
-    .replace('m7b5', '-7♭5')
-    .replace('m7', '-7')
-    .replace('m6', '-6')
-    .replace('m9', '-9')
-    .replace('dim7', '°7')
+    .replace('m7b5', 'm7b5')
+    .replace('m7', 'm7')
+    .replace('m6', 'm6')
+    .replace('m9', 'm9')
+    .replace('dim7', 'dim7')
     .replace('7alt', '7alt')
-    .replace('7b13', '7♭13')
-    .replace('7b9', '7♭9')
-    .replace('7#9', '7♯9')
-    .replace('7#11', '7♯11')
+    .replace('7b13', '7b13')
+    .replace('7b9', '7b9')
+    .replace('7#9', '7#9')
+    .replace('7#11', '7#11')
     .replace('7sus4', '7sus')
 
   return rootNote + quality

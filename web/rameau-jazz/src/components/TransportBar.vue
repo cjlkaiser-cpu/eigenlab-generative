@@ -22,17 +22,24 @@
           <span class="dropdown-arrow">&#9662;</span>
         </button>
         <div v-if="showExportMenu" class="export-menu">
+          <div class="export-section-label">MIDI</div>
           <button class="export-option" @click="exportMidi(false)">
             <span class="option-icon">&#127929;</span>
-            MIDI (Piano only)
+            Piano only
           </button>
           <button class="export-option" @click="exportMidi(true)">
             <span class="option-icon">&#127928;</span>
-            MIDI (Piano + Bass)
+            Piano + Bass
           </button>
           <button class="export-option" @click="exportMidiFull">
             <span class="option-icon">&#127927;</span>
-            MIDI (Full band)
+            Full band
+          </button>
+          <div class="export-divider"></div>
+          <div class="export-section-label">AUDIO</div>
+          <button class="export-option" @click="exportAudio" :disabled="isRecording">
+            <span class="option-icon">{{ isRecording ? '&#9899;' : '&#127908;' }}</span>
+            {{ isRecording ? 'Grabando...' : 'Grabar WAV' }}
           </button>
         </div>
       </div>
@@ -79,6 +86,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useHarmonyStore } from '../stores/harmony'
 import { downloadMidi, generateFilename } from '../export/MidiExporter.js'
+import {
+  initRecorder,
+  startRecording,
+  stopRecording,
+  downloadAudio,
+  generateAudioFilename
+} from '../export/AudioExporter.js'
 
 const harmonyStore = useHarmonyStore()
 
@@ -92,6 +106,7 @@ const hasProgression = computed(() => harmonyStore.progression.length > 0)
 // Export dropdown state
 const showExportMenu = ref(false)
 const exportDropdown = ref(null)
+const isRecording = ref(false)
 
 // Tap tempo state
 const tapTimes = ref([])
@@ -216,6 +231,57 @@ function exportMidiFull() {
   })
 
   showExportMenu.value = false
+}
+
+async function exportAudio() {
+  if (isRecording.value) return
+
+  showExportMenu.value = false
+  isRecording.value = true
+
+  try {
+    // Initialize recorder
+    initRecorder()
+
+    // Calculate duration: measures * beats * (60/tempo) * 1000ms
+    const numMeasures = harmonyStore.progression.length
+    const beatsPerMeasure = 4
+    const durationMs = (numMeasures * beatsPerMeasure * 60 / harmonyStore.tempo) * 1000
+
+    // Start recording
+    await startRecording()
+
+    // Ensure we have a progression
+    if (harmonyStore.progression.length === 0) {
+      harmonyStore.generateProgression(8)
+    }
+
+    // Start playback
+    await harmonyStore.play()
+
+    // Wait for the progression to complete (+ buffer)
+    await new Promise(resolve => setTimeout(resolve, durationMs + 1000))
+
+    // Stop playback
+    harmonyStore.stop()
+
+    // Stop recording and get blob
+    const blob = await stopRecording()
+
+    if (blob && blob.size > 0) {
+      const filename = generateAudioFilename(
+        harmonyStore.key,
+        harmonyStore.progression.length,
+        harmonyStore.tempo,
+        harmonyStore.stylePreset
+      )
+      await downloadAudio(blob, filename)
+    }
+  } catch (err) {
+    console.error('Audio export failed:', err)
+  } finally {
+    isRecording.value = false
+  }
 }
 
 onMounted(() => {
@@ -431,5 +497,30 @@ onUnmounted(() => {
 
 .option-icon {
   font-size: 16px;
+}
+
+.export-section-label {
+  padding: 6px 14px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.export-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 6px 0;
+}
+
+.export-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-option:disabled:hover {
+  background: transparent;
+  color: var(--text-primary);
 }
 </style>

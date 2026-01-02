@@ -38,20 +38,26 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 ### Implementado (v0.2.0)
 
 - Walking bass como opcion de output
-- 4 patrones de walking: Oleaje, Ascendente, Descendente, Cromatico
+- 4 patrones de walking: Oleaje, Escalar, Arpegio, Cromatico
 - Aproximaciones al siguiente acorde (look-ahead)
 - Selector de estilo de bajo (Bloque vs Walking)
 
 #### Patrones Walking Bass
 
+Todos los patrones siguen las reglas de jazz:
+- **Beat 1**: Root (ancla armonica)
+- **Beat 2**: Nota de paso (escalar/arpegio)
+- **Beat 3**: Target note (5ª o 3ª)
+- **Beat 4**: Approach (semitono hacia siguiente root)
+
 | Patron | Descripcion | Comportamiento |
 |--------|-------------|----------------|
-| **Oleaje (realista)** | Alterna ↑/↓ cada acorde | Acorde 1: sube, Acorde 2: baja... |
-| **Ascendente** | Siempre 1→3→5→approach | Linea ascendente constante |
-| **Descendente** | Siempre 1→b7↓→5↓→approach | Linea descendente constante |
-| **Cromatico** | Cromatico hacia target | Movimiento por semitonos |
+| **Oleaje (realista)** | Alterna ↑/↓ + variacion | Beat 2 varia (2ª/3ª), 20% cromatismo |
+| **Escalar** | Grados de la escala | ↑: 1→2→3→app, ↓: 1→7→6→app |
+| **Arpegio** | Notas del acorde | ↑: 1→3→5→app, ↓: 1→5→3→app, 30% usa 7ª |
+| **Cromatico** | Semitonos hacia target | Movimiento cromatico directo |
 
-El patron **Oleaje** es el mas realista - crea el movimiento ondulante tipico del walking bass de jazz, donde el bajo sube un compas y baja el siguiente.
+El patron **Oleaje** es el mas realista - alterna direccion cada acorde con variacion aleatoria para evitar mecanicidad.
 
 ### Progresiones tipicas generadas
 
@@ -137,10 +143,11 @@ Turnarounds:
 
 ### v0.2.0 - Walking Bass ✓
 
-- [x] Linea de bajo en negras
-- [x] Aproximaciones cromaticas
-- [x] Oleaje realista (alterna ascendente/descendente)
-- [x] Patrones: Oleaje, Ascendente, Descendente, Cromatico
+- [x] Linea de bajo en negras (4 por compas)
+- [x] Reglas de jazz: Beat1=root, Beat2=paso, Beat3=target, Beat4=approach
+- [x] Oleaje realista con variacion aleatoria (20% cromatismo)
+- [x] Patrones: Oleaje, Escalar, Arpegio, Cromatico
+- [x] Movimiento suave (evita saltos grandes)
 
 ### v0.3.0 - Ritmo
 

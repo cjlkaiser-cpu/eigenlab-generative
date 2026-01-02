@@ -102,9 +102,8 @@ MuseScore {
     property var bassStyles: ["Bloque (redonda)", "Walking (negras)"]
     property int selectedBassStyle: 0  // 0=bloque, 1=walking
 
-    property var walkingPatterns: ["Oleaje (realista)", "Ascendente", "Descendente", "Cromatico"]
+    property var walkingPatterns: ["Oleaje (realista)", "Escalar", "Arpegio", "Cromatico"]
     property int selectedWalkingPattern: 0
-    property int walkingDirection: 1  // 1=ascendente, -1=descendente (alterna en oleaje)
 
     // ========== ESTADO ==========
 
@@ -371,9 +370,13 @@ MuseScore {
 
     /**
      * Genera 4 notas de walking bass para un compas
-     * currentDegree: grado actual
-     * nextDegree: siguiente grado (para approach note)
-     * keyPitch: tonica en MIDI
+     * Reglas de jazz:
+     *   Beat 1: Root (fundamental) - ancla armonica
+     *   Beat 2: Nota de paso (escalar o arpegio)
+     *   Beat 3: Target note (5ª o 3ª) - importante armonicamente
+     *   Beat 4: Approach (semitono hacia siguiente root)
+     *
+     * Movimiento suave: evitar saltos > 5ª (excepto octava)
      */
     function getWalkingBass(currentDegree, nextDegree, keyPitch, chordIndex) {
         var currentInfo = jazzDegrees[currentDegree] || jazzDegrees["Imaj7"];
@@ -385,62 +388,115 @@ MuseScore {
         var chordType = chordTypes[currentInfo.type];
         var intervals = chordType.intervals;
 
-        // Notas del acorde actual
+        // Notas del acorde actual (en octava baja)
         var bassRoot = 36 + root;
-        var third = bassRoot + intervals[1];
-        var fifth = bassRoot + intervals[2];
-        var seventh = bassRoot + (intervals[3] || 10);  // Default b7
+        var second = bassRoot + 2;    // 2ª mayor (escalar)
+        var third = bassRoot + intervals[1];  // 3ª (mayor o menor segun acorde)
+        var fourth = bassRoot + 5;    // 4ª justa
+        var fifth = bassRoot + intervals[2];  // 5ª
+        var sixth = bassRoot + 9;     // 6ª
+        var seventh = bassRoot + (intervals[3] || 10);  // 7ª
 
-        // Target para approach
+        // Target: root del siguiente acorde
         var targetBass = 36 + targetRoot;
 
-        // Ajustar target a la octava más cercana
+        // Ajustar target a octava cercana (movimiento suave)
         while (targetBass < bassRoot - 6) targetBass += 12;
         while (targetBass > bassRoot + 6) targetBass -= 12;
 
-        // Approach notes (semitono arriba o abajo del target)
-        var approachBelow = targetBass - 1;
-        var approachAbove = targetBass + 1;
+        // Approach: semitono arriba o abajo del target
+        // Elegir segun direccion del movimiento
+        var movingUp = targetBass >= bassRoot;
+        var approach = movingUp ? (targetBass - 1) : (targetBass + 1);
+
+        // Variacion aleatoria para evitar mecanicidad
+        var rand = Math.random();
 
         var pattern;
 
         if (selectedWalkingPattern === 0) {
-            // OLEAJE (realista) - alterna ascendente/descendente
-            var direction = (chordIndex % 2 === 0) ? 1 : -1;  // Alterna cada acorde
+            // OLEAJE (realista) - alterna direccion + variacion
+            var ascending = (chordIndex % 2 === 0);
 
-            if (direction === 1) {
-                // Ascendente: root → 3 → 5 → approach
-                pattern = [bassRoot, third, fifth, approachBelow];
+            if (ascending) {
+                // Ascendente con variacion en beat 2
+                var beat2 = (rand < 0.5) ? second : third;  // Escalar o arpegio
+                var beat3 = fifth;  // Target harmonico
+                pattern = [bassRoot, beat2, beat3, approach];
             } else {
-                // Descendente: root → 7(octava abajo) → 5 → approach
+                // Descendente
                 var lowSeventh = seventh - 12;
+                var lowSixth = sixth - 12;
+                var beat2 = (rand < 0.5) ? lowSeventh : lowSixth;
                 var lowFifth = fifth - 12;
-                pattern = [bassRoot, lowSeventh, lowFifth, approachAbove];
+                pattern = [bassRoot, beat2, lowFifth, approach];
+            }
+
+            // Ocasionalmente (20%) añadir cromatismo en beat 2
+            if (rand > 0.8) {
+                pattern[1] = ascending ? (bassRoot + 1) : (bassRoot - 1);
             }
 
         } else if (selectedWalkingPattern === 1) {
-            // Siempre ASCENDENTE: 1 → 3 → 5 → approach
-            pattern = [bassRoot, third, fifth, approachBelow];
+            // ESCALAR - movimiento por grados de la escala
+            var ascending = (chordIndex % 2 === 0);
+
+            if (ascending) {
+                // 1 → 2 → 3 → approach (o 1 → 2 → 4 → approach)
+                var beat3 = (rand < 0.6) ? third : fourth;
+                pattern = [bassRoot, second, beat3, approach];
+            } else {
+                // 1 → 7↓ → 6↓ → approach
+                var lowSeventh = seventh - 12;
+                var lowSixth = sixth - 12;
+                pattern = [bassRoot, lowSeventh, lowSixth, approach];
+            }
 
         } else if (selectedWalkingPattern === 2) {
-            // Siempre DESCENDENTE: 1 → b7(abajo) → 5(abajo) → approach
-            var lowSeventh = seventh - 12;
-            var lowFifth = fifth - 12;
-            pattern = [bassRoot, lowSeventh, lowFifth, approachAbove];
+            // ARPEGIO - notas del acorde
+            var ascending = (chordIndex % 2 === 0);
+
+            if (ascending) {
+                // 1 → 3 → 5 → approach
+                pattern = [bassRoot, third, fifth, approach];
+            } else {
+                // 1 → 5↓ → 3↓ → approach
+                var lowFifth = fifth - 12;
+                var lowThird = third - 12;
+                pattern = [bassRoot, lowFifth, lowThird, approach];
+            }
+
+            // Variacion: a veces usar 7ª en lugar de 5ª
+            if (rand > 0.7) {
+                pattern[2] = ascending ? seventh : (seventh - 12);
+            }
 
         } else {
-            // CROMATICO hacia el target
+            // CROMATICO - semitonos hacia el target
             var diff = targetBass - bassRoot;
-            var step = diff > 0 ? 1 : -1;
-            pattern = [
-                bassRoot,
-                bassRoot + step,
-                bassRoot + step * 2,
-                targetBass - step  // approach
-            ];
+            var steps = Math.abs(diff);
+            var dir = diff > 0 ? 1 : -1;
+
+            if (steps <= 4) {
+                // Cromatico directo
+                pattern = [
+                    bassRoot,
+                    bassRoot + dir,
+                    bassRoot + dir * 2,
+                    approach
+                ];
+            } else {
+                // Mixto: escalar + cromatico al final
+                pattern = [
+                    bassRoot,
+                    bassRoot + dir * 2,  // Tono
+                    approach - dir,      // Dos semitonos antes
+                    approach
+                ];
+            }
         }
 
-        // Asegurar rango (36-55 = C2-G3)
+        // Asegurar rango valido (C2-G3 = 36-55)
         for (var i = 0; i < pattern.length; i++) {
             while (pattern[i] < 36) pattern[i] += 12;
             while (pattern[i] > 55) pattern[i] -= 12;

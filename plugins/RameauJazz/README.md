@@ -4,7 +4,7 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 
 ## Estado
 
-**Version:** 0.1.0 (Alpha)
+**Version:** 0.2.0 (Alpha)
 
 ## Caracteristicas
 
@@ -34,6 +34,22 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 | 7as | maj7, m7, 7, m7b5 |
 | 9as | maj9, m9, 9, 13 |
 | Mixto | Alternancia aleatoria |
+
+### Implementado (v0.2.0)
+
+- Walking bass como opcion de output
+- 4 patrones de walking: 1-3-5-approach, 1-5-3-approach, 1-2-3-5, Cromatico
+- Aproximaciones al siguiente acorde (look-ahead)
+- Selector de estilo de bajo (Bloque vs Walking)
+
+#### Patrones Walking Bass
+
+| Patron | Descripcion | Ejemplo en Cmaj7→Dm7 |
+|--------|-------------|----------------------|
+| **1-3-5-approach** | Root, 3rd, 5th, approach | C - E - G - C# |
+| **1-5-3-approach** | Root, 5th, 3rd, approach | C - G - E - C# |
+| **1-2-3-5** | Escala ascendente | C - D - E - G |
+| **Cromatico** | Cromatico hacia target | C - C# - D - D# |
 
 ### Progresiones tipicas generadas
 
@@ -117,11 +133,11 @@ Turnarounds:
 
 ## Roadmap
 
-### v0.2.0 - Walking Bass
+### v0.2.0 - Walking Bass ✓
 
-- [ ] Linea de bajo en negras
-- [ ] Aproximaciones cromaticas
-- [ ] Patrones 1-5-1-approach
+- [x] Linea de bajo en negras
+- [x] Aproximaciones cromaticas
+- [x] Patrones 1-3-5-approach, 1-5-3-approach, 1-2-3-5, Cromatico
 
 ### v0.3.0 - Ritmo
 
@@ -180,4 +196,5 @@ Turnarounds:
 
 ## Changelog
 
+- **02 ene 2026**: v0.2.0 - Walking bass con 4 patrones y aproximaciones
 - **02 ene 2026**: v0.1.0 - Version inicial con voicings shell/drop2/rootless

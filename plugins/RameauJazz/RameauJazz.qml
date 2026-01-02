@@ -5,6 +5,7 @@
  * Basado en cadenas ii-V-I y sustituciones armonicas.
  *
  * v0.1: Acordes de 7a, shell voicings, ii-V-I
+ * v0.2: Walking bass opcional
  *
  * Basado en el motor de Markov de RameauGenerator.
  */
@@ -18,11 +19,11 @@ MuseScore {
     id: plugin
     title: "Rameau Jazz"
     description: "Genera progresiones jazz con acordes de 7a y voicings"
-    version: "0.1.0"
+    version: "0.2.0"
     pluginType: "dialog"
 
     width: 400
-    height: 650
+    height: 700
 
     // ========== CONSTANTES PIANO ==========
 
@@ -95,6 +96,14 @@ MuseScore {
 
     property var chordComplexity: ["7as", "9as", "Mixto"]
     property int selectedComplexity: 0  // 0=7as, 1=9as, 2=mixto
+
+    // ========== WALKING BASS (v0.2) ==========
+
+    property var bassStyles: ["Bloque (redonda)", "Walking (negras)"]
+    property int selectedBassStyle: 0  // 0=bloque, 1=walking
+
+    property var walkingPatterns: ["1-3-5-approach", "1-5-3-approach", "1-2-3-5", "Cromatico"]
+    property int selectedWalkingPattern: 0
 
     // ========== ESTADO ==========
 
@@ -357,6 +366,68 @@ MuseScore {
         };
     }
 
+    // ========== WALKING BASS (v0.2) ==========
+
+    /**
+     * Genera 4 notas de walking bass para un compas
+     * currentDegree: grado actual
+     * nextDegree: siguiente grado (para approach note)
+     * keyPitch: tonica en MIDI
+     */
+    function getWalkingBass(currentDegree, nextDegree, keyPitch) {
+        var currentInfo = jazzDegrees[currentDegree] || jazzDegrees["Imaj7"];
+        var nextInfo = jazzDegrees[nextDegree] || jazzDegrees["Imaj7"];
+
+        var root = (currentInfo.root + keyPitch) % 12;
+        var targetRoot = (nextInfo.root + keyPitch) % 12;
+
+        var chordType = chordTypes[currentInfo.type];
+        var intervals = chordType.intervals;
+
+        // Obtener notas del acorde en octava baja (36-48)
+        var bassRoot = 36 + root;
+        var third = 36 + ((root + intervals[1]) % 12);
+        var fifth = 36 + ((root + intervals[2]) % 12);
+
+        // Ajustar para que esten en rango
+        if (third < bassRoot) third += 12;
+        if (fifth < bassRoot) fifth += 12;
+
+        // Approach note: semitono arriba o abajo del target
+        var targetBass = 36 + targetRoot;
+        var approachBelow = targetBass - 1;
+        var approachAbove = targetBass + 1;
+        // Elegir approach mas cercano a la quinta
+        var approach = Math.abs(fifth - approachBelow) < Math.abs(fifth - approachAbove) ? approachBelow : approachAbove;
+
+        // Seleccionar patron
+        var pattern;
+        if (selectedWalkingPattern === 0) {
+            // 1-3-5-approach
+            pattern = [bassRoot, third, fifth, approach];
+        } else if (selectedWalkingPattern === 1) {
+            // 1-5-3-approach
+            pattern = [bassRoot, fifth, third, approach];
+        } else if (selectedWalkingPattern === 2) {
+            // 1-2-3-5 (escalar)
+            var second = bassRoot + 2;  // Tono entero arriba
+            pattern = [bassRoot, second, third, fifth];
+        } else {
+            // Cromatico
+            var chr1 = bassRoot + 1;
+            var chr2 = bassRoot + 2;
+            pattern = [bassRoot, chr1, chr2, approach];
+        }
+
+        // Asegurar que todas las notas estan en rango (36-60)
+        for (var i = 0; i < pattern.length; i++) {
+            while (pattern[i] < 36) pattern[i] += 12;
+            while (pattern[i] > 55) pattern[i] -= 12;
+        }
+
+        return pattern;
+    }
+
     // ========== UI ==========
 
     Rectangle {
@@ -461,6 +532,43 @@ MuseScore {
                     onCurrentIndexChanged: selectedVoicing = currentIndex
                     background: Rectangle { color: "#1a1408"; radius: 4 }
                     contentItem: Text { text: voicingCombo.currentText; color: "#f0c040"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                }
+            }
+
+            // Walking Bass (v0.2)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Bajo"; font.pixelSize: 11; color: "#a08040" }
+                    ComboBox {
+                        id: bassCombo
+                        Layout.fillWidth: true
+                        model: bassStyles
+                        currentIndex: 0
+                        onCurrentIndexChanged: selectedBassStyle = currentIndex
+                        background: Rectangle { color: "#1a1408"; radius: 4 }
+                        contentItem: Text { text: bassCombo.currentText; color: "#f0c040"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Patron Walking"; font.pixelSize: 11; color: "#a08040" }
+                    ComboBox {
+                        id: walkingCombo
+                        Layout.fillWidth: true
+                        model: walkingPatterns
+                        currentIndex: 0
+                        enabled: selectedBassStyle === 1
+                        onCurrentIndexChanged: selectedWalkingPattern = currentIndex
+                        background: Rectangle { color: enabled ? "#1a1408" : "#0a0a08"; radius: 4 }
+                        contentItem: Text { text: walkingCombo.currentText; color: enabled ? "#f0c040" : "#604020"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
                 }
             }
 
@@ -598,15 +706,26 @@ MuseScore {
 
         for (var i = 0; i < prog.length; i++) {
             var voicing = getJazzVoicing(prog[i], keyPitch);
+            var nextDegree = (i < prog.length - 1) ? prog[i + 1] : prog[0];
 
-            // LH
-            cursorLH.setDuration(1, 1);
-            cursorLH.addNote(voicing.lh[0], false);
-            for (var l = 1; l < voicing.lh.length; l++) {
-                cursorLH.addNote(voicing.lh[l], true);
+            // LH: Bloque o Walking
+            if (selectedBassStyle === 0) {
+                // Bloque (redonda)
+                cursorLH.setDuration(1, 1);
+                cursorLH.addNote(voicing.lh[0], false);
+                for (var l = 1; l < voicing.lh.length; l++) {
+                    cursorLH.addNote(voicing.lh[l], true);
+                }
+            } else {
+                // Walking bass (4 negras)
+                var walkingNotes = getWalkingBass(prog[i], nextDegree, keyPitch);
+                cursorLH.setDuration(1, 4);  // Negra
+                for (var w = 0; w < walkingNotes.length; w++) {
+                    cursorLH.addNote(walkingNotes[w], false);
+                }
             }
 
-            // RH
+            // RH: siempre redonda
             cursorRH.setDuration(1, 1);
             cursorRH.addNote(voicing.rh[0], false);
             for (var r = 1; r < voicing.rh.length; r++) {
@@ -620,7 +739,8 @@ MuseScore {
         for (var j = 0; j < prog.length; j++) {
             chordNames.push(degreeToChordName(prog[j], selectedKey));
         }
-        previewText.text = voicingStyles[selectedVoicing] + "\n" + chordNames.join(" → ");
+        var bassInfo = selectedBassStyle === 1 ? " + Walking" : "";
+        previewText.text = voicingStyles[selectedVoicing] + bassInfo + "\n" + chordNames.join(" → ");
         previewText.color = "#70ff70";
     }
 }

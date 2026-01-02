@@ -10,6 +10,7 @@
  * v0.4: Tresillos swing + Comping RH (Charleston, Anticipation, etc.)
  * v0.5: Dominantes secundarios (V7/ii, V7/V), acordes de paso dim7
  * v0.6: Presets de estilo (Bebop, Bossa Nova, Modal, Ballad)
+ * v0.7: Modulaciones + 15 acordes nuevos (borrowed, Coltrane, upper structures)
  *
  * Basado en el motor de Markov de RameauGenerator.
  */
@@ -22,12 +23,12 @@ import QtQuick.Layouts 1.3
 MuseScore {
     id: plugin
     title: "Rameau Jazz"
-    description: "Genera progresiones jazz con acordes de 7a y voicings"
-    version: "0.6.0"
+    description: "Genera progresiones jazz con acordes de 7a, modulaciones y voicings"
+    version: "0.7.0"
     pluginType: "dialog"
 
     width: 400
-    height: 700
+    height: 850
 
     // ========== CONSTANTES PIANO ==========
 
@@ -51,7 +52,16 @@ MuseScore {
         '7b9':    { intervals: [0, 4, 7, 10, 13], symbol: '7b9', color: '#ff7070' },
         '7#9':    { intervals: [0, 4, 7, 10, 15], symbol: '7#9', color: '#ff7070' },
         'm7b5':   { intervals: [0, 3, 6, 10], symbol: 'm7b5', color: '#ff70ff' },
-        'dim7':   { intervals: [0, 3, 6, 9], symbol: 'dim7', color: '#ff70ff' }
+        'dim7':   { intervals: [0, 3, 6, 9], symbol: 'dim7', color: '#ff70ff' },
+
+        // v0.7: NUEVOS TIPOS DE ACORDE
+        '7b13':   { intervals: [0, 4, 7, 10, 20], symbol: '7♭13', color: '#ff9070' },   // 1-3-5-b7-b13
+        '7#11':   { intervals: [0, 4, 7, 10, 18], symbol: '7#11', color: '#ff9070' },   // 1-3-5-b7-#11 (Lydian dom)
+        '7sus4':  { intervals: [0, 5, 7, 10], symbol: '7sus4', color: '#70ffff' },      // 1-4-5-b7
+        'sus4':   { intervals: [0, 5, 7], symbol: 'sus4', color: '#70ffff' },           // 1-4-5
+        'sus2':   { intervals: [0, 2, 7], symbol: 'sus2', color: '#70ffff' },           // 1-2-5
+        '7#9#5':  { intervals: [0, 4, 8, 10, 15], symbol: '7#9#5', color: '#ff5050' },  // Hendrix chord
+        'maj7#11':{ intervals: [0, 4, 7, 11, 18], symbol: 'maj7#11', color: '#90ff70' } // Lydian
     })
 
     // ========== GRADOS JAZZ (basados en ii-V-I) ==========
@@ -92,7 +102,31 @@ MuseScore {
         // v0.5: ACORDES DIMINUIDOS DE PASO
         '#Idim7':  { type: 'dim7', root: 1, func: 'pass', tension: 0.6 },   // C#dim7: I → ii
         '#IVdim7': { type: 'dim7', root: 6, func: 'pass', tension: 0.6 },   // F#dim7: IV → V
-        'bIIIdim7':{ type: 'dim7', root: 3, func: 'pass', tension: 0.6 }    // Ebdim7: iii → ii
+        'bIIIdim7':{ type: 'dim7', root: 3, func: 'pass', tension: 0.6 },   // Ebdim7: iii → ii
+
+        // v0.7: BORROWED CHORDS (intercambio modal)
+        'bVImaj7': { type: 'maj7', root: 8, func: 'SD', tension: 0.5 },     // Abmaj7 en C (de C menor)
+        'bIIImaj7':{ type: 'maj7', root: 3, func: 'T', tension: 0.4 },      // Ebmaj7 en C (de C menor)
+        'IVm7':    { type: 'm7', root: 5, func: 'SD', tension: 0.5 },       // Fm7 en C (subdominante menor)
+        'bIImaj7': { type: 'maj7', root: 1, func: 'SD', tension: 0.7 },     // Dbmaj7 (Napolitana)
+
+        // v0.7: DOMINANTES ALTERADOS ADICIONALES
+        'V7b13':   { type: '7b13', root: 7, func: 'D', tension: 0.85 },     // G7b13
+        'V7#11':   { type: '7#11', root: 7, func: 'D', tension: 0.8 },      // G7#11 (Lydian dominant)
+        'V7sus4':  { type: '7sus4', root: 7, func: 'D', tension: 0.6 },     // G7sus4
+
+        // v0.7: ACORDES SUSPENDIDOS
+        'IIsus4':  { type: 'sus4', root: 2, func: 'SD', tension: 0.3 },     // Dsus4
+        'Isus2':   { type: 'sus2', root: 0, func: 'T', tension: 0.1 },      // Csus2
+
+        // v0.7: UPPER STRUCTURES
+        'V7#9#5':  { type: '7#9#5', root: 7, func: 'D', tension: 0.95 },    // G7#9#5 (Hendrix)
+        'IVmaj7#11':{ type: 'maj7#11', root: 5, func: 'SD', tension: 0.5 }, // Fmaj7#11 (Lydian IV)
+
+        // v0.7: COLTRANE DOMINANTS (para Giant Steps)
+        'bIII7':   { type: '7', root: 3, func: 'coltrane', tension: 0.75 }, // Eb7 en C → Ab
+        'bVI7':    { type: '7', root: 8, func: 'coltrane', tension: 0.75 }, // Ab7 en C → Db
+        'VI7':     { type: '7', root: 9, func: 'coltrane', tension: 0.7 }   // A7 en C → D (= V7/ii pero coltrane)
     })
 
     // ========== MATRIZ DE TRANSICION JAZZ ==========
@@ -100,11 +134,14 @@ MuseScore {
     // Centrada en ii-V-I con sustituciones y dominantes secundarios
     property var jazzTransitions: ({
         // Acordes diatonicos
-        'Imaj7':   { 'Imaj7': 0.03, 'IIm7': 0.15, 'IIIm7': 0.05, 'IVmaj7': 0.15, 'V7': 0.08, 'VIm7': 0.15,
-                     'V7/ii': 0.12, '#Idim7': 0.10, 'V7/vi': 0.08, 'iiø/ii': 0.05, 'V7/IV': 0.04 },
-        'IIm7':    { 'Imaj7': 0.03, 'V7': 0.55, 'bII7': 0.15, 'V7/V': 0.10, '#IVdim7': 0.07, 'VIIm7b5': 0.05, 'IVmaj7': 0.05 },
+        'Imaj7':   { 'IIm7': 0.12, 'IIIm7': 0.04, 'IVmaj7': 0.12, 'V7': 0.06, 'VIm7': 0.12,
+                     'V7/ii': 0.10, '#Idim7': 0.08, 'V7/vi': 0.06, 'iiø/ii': 0.04, 'V7/IV': 0.03,
+                     'bVImaj7': 0.05, 'IVm7': 0.04, 'bIII7': 0.05, 'bVI7': 0.04, 'VI7': 0.05 },  // v0.7: borrowed + coltrane
+        'IIm7':    { 'V7': 0.40, 'bII7': 0.12, 'V7/V': 0.08, '#IVdim7': 0.06, 'VIIm7b5': 0.04, 'IVmaj7': 0.04,
+                     'V7b13': 0.06, 'V7#11': 0.05, 'V7sus4': 0.05, 'V7#9#5': 0.04, 'IVm7': 0.03, 'bIImaj7': 0.03 },  // v0.7: altered V
         'IIIm7':   { 'IIm7': 0.10, 'IVmaj7': 0.15, 'VIm7': 0.45, 'bIIIdim7': 0.15, 'V7/vi': 0.10, 'VIIm7b5': 0.05 },
-        'IVmaj7':  { 'Imaj7': 0.10, 'IIm7': 0.15, 'IIIm7': 0.08, 'V7': 0.30, '#IVdim7': 0.15, 'VIm7': 0.07, '#IVm7b5': 0.05, 'V7/V': 0.10 },
+        'IVmaj7':  { 'Imaj7': 0.08, 'IIm7': 0.12, 'IIIm7': 0.06, 'V7': 0.25, '#IVdim7': 0.12, 'VIm7': 0.05, '#IVm7b5': 0.04, 'V7/V': 0.08,
+                     'IVm7': 0.06, 'IVmaj7#11': 0.05, 'bVImaj7': 0.04, 'V7sus4': 0.05 },  // v0.7: modal interchange
         'V7':      { 'Imaj7': 0.55, 'VIm7': 0.20, 'IIm7': 0.05, 'IVmaj7': 0.05, 'bVII7': 0.05, 'V7/ii': 0.05, 'IIIm7': 0.05 },
         'VIm7':    { 'Imaj7': 0.08, 'IIm7': 0.30, 'IVmaj7': 0.15, 'V7': 0.15, 'V7/ii': 0.15, 'iiø/ii': 0.10, 'VIIm7b5': 0.07 },
         'VIIm7b5': { 'IIIm7': 0.50, 'V7': 0.15, 'Imaj7': 0.10, 'IIm7': 0.10, 'IVmaj7': 0.10, 'VIm7': 0.05 },
@@ -127,7 +164,31 @@ MuseScore {
         // v0.5: DIMINUIDOS DE PASO - conectan cromaticamente
         '#Idim7':  { 'IIm7': 0.85, 'V7/ii': 0.10, 'Imaj7': 0.05 },   // C#dim → Dm
         '#IVdim7': { 'V7': 0.85, 'IIm7': 0.10, 'Imaj7': 0.05 },      // F#dim → G7
-        'bIIIdim7':{ 'IIm7': 0.85, 'IIIm7': 0.10, 'V7': 0.05 }       // Ebdim → Dm
+        'bIIIdim7':{ 'IIm7': 0.85, 'IIIm7': 0.10, 'V7': 0.05 },      // Ebdim → Dm
+
+        // v0.7: BORROWED CHORDS - resuelven a acordes de la tonalidad original
+        'bVImaj7': { 'V7': 0.35, 'bVII7': 0.25, 'IVm7': 0.20, 'Imaj7': 0.10, 'bIImaj7': 0.10 },  // Abmaj7 → G7, Bb7
+        'bIIImaj7':{ 'IIm7': 0.30, 'bVImaj7': 0.25, 'IVmaj7': 0.20, 'V7': 0.15, 'Imaj7': 0.10 }, // Ebmaj7 → Dm7
+        'IVm7':    { 'V7': 0.40, 'bVII7': 0.20, 'Imaj7': 0.20, 'bVImaj7': 0.10, 'bII7': 0.10 },  // Fm7 → G7
+        'bIImaj7': { 'V7': 0.50, 'Imaj7': 0.25, 'IIm7': 0.15, 'bII7': 0.10 },                    // Dbmaj7 (Napolitana) → G7
+
+        // v0.7: DOMINANTES ALTERADOS - resuelven como V7
+        'V7b13':   { 'Imaj7': 0.60, 'VIm7': 0.20, 'IVmaj7': 0.10, 'IIm7': 0.10 },  // G7b13 → C
+        'V7#11':   { 'Imaj7': 0.55, 'VIm7': 0.20, 'IVmaj7': 0.15, 'bVII7': 0.10 }, // G7#11 → C
+        'V7sus4':  { 'V7': 0.40, 'Imaj7': 0.35, 'VIm7': 0.15, 'IIm7': 0.10 },      // G7sus4 → G7 → C
+
+        // v0.7: ACORDES SUSPENDIDOS - crean ambiguedad
+        'IIsus4':  { 'IIm7': 0.50, 'V7': 0.30, 'Imaj7': 0.10, 'IVmaj7': 0.10 },    // Dsus4 → Dm7
+        'Isus2':   { 'Imaj7': 0.50, 'IIm7': 0.20, 'IVmaj7': 0.20, 'V7': 0.10 },    // Csus2 → Cmaj7
+
+        // v0.7: UPPER STRUCTURES - alta tension, resuelven a tonicas
+        'V7#9#5':  { 'Imaj7': 0.65, 'VIm7': 0.20, 'bVImaj7': 0.10, 'IVm7': 0.05 }, // Hendrix → I
+        'IVmaj7#11':{ 'V7': 0.40, 'IIm7': 0.25, 'Imaj7': 0.20, '#IVm7b5': 0.15 },  // Lydian IV → V
+
+        // v0.7: COLTRANE DOMINANTS - modulan por 3as mayores
+        'bIII7':   { 'bVImaj7': 0.45, 'bVI7': 0.30, 'IVm7': 0.15, 'Imaj7': 0.10 }, // Eb7 → Ab (baja 3a mayor)
+        'bVI7':    { 'bIImaj7': 0.40, 'bIII7': 0.25, 'V7': 0.20, 'Imaj7': 0.15 },  // Ab7 → Db (continua ciclo)
+        'VI7':     { 'IIm7': 0.50, 'V7/ii': 0.25, 'bIII7': 0.15, 'Imaj7': 0.10 }   // A7 → Dm o ciclo
     })
 
     // ========== ESTILOS DE VOICING ==========
@@ -245,6 +306,71 @@ MuseScore {
 
     property var noteNames: ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
 
+    // ========== v0.7: SISTEMA DE MODULACION ==========
+
+    property string currentKey: "C"              // Tonalidad ACTUAL durante generacion
+    property real modulationProbability: 0.15   // Probabilidad de modular (0-0.5)
+    property bool returnToTonic: true           // Volver a tonalidad original al final
+    property int modulationCount: 0             // Contador de modulaciones en la progresion
+    property int modulationLevel: 2             // 0=Basicas, 1=Extendidas, 2=Coltrane
+
+    // Targets de modulacion con sus probabilidades relativas
+    property var modulationTargets: ({
+        'relative':    { interval: -3, prob: 0.20, level: 0 },  // Relativa menor (Am)
+        'dominant':    { interval: 7,  prob: 0.20, level: 0 },  // Dominante (G)
+        'subdominant': { interval: 5,  prob: 0.15, level: 0 },  // Subdominante (F)
+        'chromUp':     { interval: 1,  prob: 0.12, level: 1 },  // Cromatica arriba (Db)
+        'chromDown':   { interval: -1, prob: 0.10, level: 1 },  // Cromatica abajo (B)
+        'maj3Down':    { interval: -4, prob: 0.08, level: 2 },  // 3a mayor abajo - Coltrane (Ab)
+        'maj3Up':      { interval: 4,  prob: 0.08, level: 2 },  // 3a mayor arriba - Coltrane (E)
+        'min3':        { interval: 3,  prob: 0.07, level: 2 }   // 3a menor - Coltrane (Eb)
+    })
+
+    // Acordes que pueden disparar modulacion
+    property var modulationTriggers: ['V7/ii', 'V7/V', 'V7/IV', 'V7/vi', 'bIII7', 'bVI7', 'VI7']
+
+    // Transpone una tonalidad por un intervalo en semitonos
+    function transposeKey(key, interval) {
+        var keyPitch = keyPitches[key] || 0;
+        var newPitch = (keyPitch + interval + 12) % 12;
+        return noteNames[newPitch];
+    }
+
+    // Selecciona una modulacion basada en probabilidades
+    function selectModulationTarget() {
+        var availableTargets = [];
+        var totalProb = 0;
+
+        // Filtrar por nivel de modulacion permitido
+        for (var name in modulationTargets) {
+            var target = modulationTargets[name];
+            if (target.level <= modulationLevel) {
+                availableTargets.push({ name: name, interval: target.interval, prob: target.prob });
+                totalProb += target.prob;
+            }
+        }
+
+        // Normalizar y seleccionar
+        var rand = Math.random() * totalProb;
+        var cumulative = 0;
+        for (var i = 0; i < availableTargets.length; i++) {
+            cumulative += availableTargets[i].prob;
+            if (rand < cumulative) {
+                return availableTargets[i].interval;
+            }
+        }
+        return 7;  // Default: dominante (5J arriba)
+    }
+
+    // Detecta si debemos modular basado en el acorde actual
+    function shouldModulate(chord) {
+        // Solo modular si estamos en un acorde trigger
+        if (modulationTriggers.indexOf(chord) < 0) return false;
+
+        // Probabilidad de modular
+        return Math.random() < modulationProbability;
+    }
+
     // ========== FUNCIONES AUXILIARES ==========
 
     function degreeToChordName(degree, keyName) {
@@ -318,29 +444,48 @@ MuseScore {
     function generateProgression() {
         var progression = [];
         currentPosition = "Imaj7";
+        currentKey = selectedKey;       // v0.7: Reset key al inicio
+        modulationCount = 0;            // v0.7: Reset contador
 
         for (var i = 0; i < numChords; i++) {
-            // Cadencia final ii-V-I
+            // Cadencia final ii-V-I (en tonalidad original si returnToTonic)
             if (endWithCadence && i === numChords - 3) {
-                progression.push("IIm7");
+                // v0.7: Si returnToTonic, volver a tonalidad original para cadencia
+                if (returnToTonic && currentKey !== selectedKey) {
+                    currentKey = selectedKey;
+                }
+                progression.push({ degree: "IIm7", key: currentKey });
                 currentPosition = "IIm7";
                 continue;
             }
             if (endWithCadence && i === numChords - 2) {
                 var dominant = selectedComplexity > 0 ? "V9" : "V7";
-                progression.push(dominant);
+                progression.push({ degree: dominant, key: currentKey });
                 currentPosition = dominant;
                 continue;
             }
             if (endWithCadence && i === numChords - 1) {
                 var tonic = selectedComplexity > 0 ? "Imaj9" : "Imaj7";
-                progression.push(tonic);
+                progression.push({ degree: tonic, key: currentKey });
                 currentPosition = tonic;
                 continue;
             }
 
             var nextChord = selectNextChord();
-            progression.push(nextChord);
+
+            // v0.7: Detectar modulacion
+            if (shouldModulate(nextChord)) {
+                var interval = selectModulationTarget();
+                var newKey = transposeKey(currentKey, interval);
+                currentKey = newKey;
+                modulationCount++;
+
+                // Despues de modular, el acorde resuelve a I de la nueva tonalidad
+                nextChord = "Imaj7";
+                currentPosition = "Imaj7";
+            }
+
+            progression.push({ degree: nextChord, key: currentKey });
             currentPosition = nextChord;
         }
 
@@ -514,12 +659,15 @@ MuseScore {
      *   Beat 3: Target harmonico (5ª, 3ª, o 7ª)
      *   Beat 4: Approach cromatico (semitono hacia siguiente root)
      */
-    function getWalkingBass(currentDegree, nextDegree, keyPitch, chordIndex) {
+    // v0.7: Añadido nextKeyPitch para modulaciones
+    function getWalkingBass(currentDegree, nextDegree, keyPitch, chordIndex, nextKeyPitch) {
         var currentInfo = jazzDegrees[currentDegree] || jazzDegrees["Imaj7"];
         var nextInfo = jazzDegrees[nextDegree] || jazzDegrees["Imaj7"];
 
+        // v0.7: Usar nextKeyPitch para el target si hay modulacion
+        var nkp = (nextKeyPitch !== undefined) ? nextKeyPitch : keyPitch;
         var root = (currentInfo.root + keyPitch) % 12;
-        var targetRoot = (nextInfo.root + keyPitch) % 12;
+        var targetRoot = (nextInfo.root + nkp) % 12;
 
         var chordType = chordTypes[currentInfo.type];
         var intervals = chordType.intervals;
@@ -938,6 +1086,88 @@ MuseScore {
 
             Rectangle { Layout.fillWidth: true; height: 1; color: "#302010" }
 
+            // ========== v0.7: MODULACION ==========
+            Text {
+                text: "Modulación (v0.7)"
+                font.pixelSize: 12
+                font.bold: true
+                color: "#70c0ff"
+                Layout.topMargin: 4
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                // Nivel de modulacion
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Nivel"; font.pixelSize: 11; color: "#5090c0" }
+                    ComboBox {
+                        id: modLevelCombo
+                        Layout.fillWidth: true
+                        model: ["Básicas", "Extendidas", "Coltrane"]
+                        currentIndex: 2
+                        onCurrentIndexChanged: modulationLevel = currentIndex
+                        background: Rectangle { color: "#081420"; radius: 4 }
+                        contentItem: Text { text: modLevelCombo.currentText; color: "#70c0ff"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+
+                // Probabilidad
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Probabilidad: " + Math.round(modulationProbability * 100) + "%"; font.pixelSize: 11; color: "#5090c0" }
+                    Slider {
+                        id: modProbSlider
+                        Layout.fillWidth: true
+                        from: 0
+                        to: 0.5
+                        value: 0.15
+                        stepSize: 0.05
+                        onValueChanged: modulationProbability = value
+                        background: Rectangle {
+                            x: modProbSlider.leftPadding
+                            y: modProbSlider.topPadding + modProbSlider.availableHeight / 2 - height / 2
+                            implicitWidth: 200
+                            implicitHeight: 4
+                            width: modProbSlider.availableWidth
+                            height: implicitHeight
+                            radius: 2
+                            color: "#203040"
+
+                            Rectangle {
+                                width: modProbSlider.visualPosition * parent.width
+                                height: parent.height
+                                color: "#70c0ff"
+                                radius: 2
+                            }
+                        }
+                        handle: Rectangle {
+                            x: modProbSlider.leftPadding + modProbSlider.visualPosition * (modProbSlider.availableWidth - width)
+                            y: modProbSlider.topPadding + modProbSlider.availableHeight / 2 - height / 2
+                            implicitWidth: 16
+                            implicitHeight: 16
+                            radius: 8
+                            color: modProbSlider.pressed ? "#90e0ff" : "#70c0ff"
+                        }
+                    }
+                }
+            }
+
+            // Volver a tonalidad original
+            CheckBox {
+                id: returnToTonicCheck
+                text: "Volver a tonalidad original al final"
+                checked: true
+                onCheckedChanged: returnToTonic = checked
+                contentItem: Text { text: parent.text; color: "#70c0ff"; font.pixelSize: 11; leftPadding: 24 }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: "#203040" }
+
             // Info voicing
             Rectangle {
                 Layout.fillWidth: true
@@ -1002,10 +1232,20 @@ MuseScore {
                     onClicked: {
                         var prog = generateProgression();
                         var chordNames = [];
+                        var degrees = [];
+                        var lastKey = "";
                         for (var i = 0; i < prog.length; i++) {
-                            chordNames.push(degreeToChordName(prog[i], selectedKey));
+                            var item = prog[i];
+                            // v0.7: Mostrar cambio de tonalidad
+                            if (item.key !== lastKey && lastKey !== "") {
+                                chordNames.push("[→ " + item.key + "]");
+                            }
+                            chordNames.push(degreeToChordName(item.degree, item.key));
+                            degrees.push(item.degree);
+                            lastKey = item.key;
                         }
-                        previewText.text = prog.join(" → ") + "\n" + chordNames.join(" → ");
+                        var modInfo = modulationCount > 0 ? " (" + modulationCount + " mod)" : "";
+                        previewText.text = degrees.join(" → ") + modInfo + "\n" + chordNames.join(" → ");
                         previewText.color = "#f0c040";
                     }
                     background: Rectangle { color: "#1a1408"; radius: 4 }
@@ -1050,7 +1290,6 @@ MuseScore {
         }
 
         var prog = generateProgression();
-        var keyPitch = keyPitches[selectedKey] || 0;
 
         curScore.startCmd();
 
@@ -1063,8 +1302,13 @@ MuseScore {
         cursorLH.rewind(0);
 
         for (var i = 0; i < prog.length; i++) {
-            var voicing = getJazzVoicing(prog[i], keyPitch);
-            var nextDegree = (i < prog.length - 1) ? prog[i + 1] : prog[0];
+            // v0.7: Extraer degree y key de cada item
+            var item = prog[i];
+            var keyPitch = keyPitches[item.key] || 0;
+            var voicing = getJazzVoicing(item.degree, keyPitch);
+            var nextItem = (i < prog.length - 1) ? prog[i + 1] : prog[0];
+            var nextDegree = nextItem.degree;
+            var nextKeyPitch = keyPitches[nextItem.key] || 0;
 
             // LH: Bloque o Walking
             if (selectedBassStyle === 0) {
@@ -1076,7 +1320,8 @@ MuseScore {
                 }
             } else {
                 // Walking bass con duraciones variables y tresillos swing
-                var walkingNotes = getWalkingBass(prog[i], nextDegree, keyPitch, i);
+                // v0.7: Usar item.degree y nextKeyPitch para modulaciones
+                var walkingNotes = getWalkingBass(item.degree, nextDegree, keyPitch, i, nextKeyPitch);
 
                 var w = 0;
                 while (w < walkingNotes.length) {
@@ -1179,12 +1424,20 @@ MuseScore {
 
         curScore.endCmd();
 
+        // v0.7: Mostrar progresion con modulaciones
         var chordNames = [];
+        var lastKey = "";
         for (var j = 0; j < prog.length; j++) {
-            chordNames.push(degreeToChordName(prog[j], selectedKey));
+            var pItem = prog[j];
+            if (pItem.key !== lastKey && lastKey !== "") {
+                chordNames.push("[→ " + pItem.key + "]");
+            }
+            chordNames.push(degreeToChordName(pItem.degree, pItem.key));
+            lastKey = pItem.key;
         }
         var bassInfo = selectedBassStyle === 1 ? " + Walking" : "";
-        previewText.text = voicingStyles[selectedVoicing] + bassInfo + "\n" + chordNames.join(" → ");
+        var modInfo = modulationCount > 0 ? " (" + modulationCount + " mod)" : "";
+        previewText.text = voicingStyles[selectedVoicing] + bassInfo + modInfo + "\n" + chordNames.join(" → ");
         previewText.color = "#70ff70";
     }
 }

@@ -4,7 +4,7 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 
 ## Estado
 
-**Version:** 0.6.0 (Alpha)
+**Version:** 0.7.0 (Alpha)
 
 ## Caracteristicas
 
@@ -238,12 +238,39 @@ Turnarounds:
 - [x] Selector UI para estilo
 - [x] `applyStylePreset()` configura probabilidades automaticamente
 
+### v0.7.0 - Modulaciones ✓
+
+- [x] **15 acordes nuevos**: borrowed chords, upper structures, Coltrane dominants
+- [x] **Sistema de modulacion**: detecta y ejecuta cambios de tonalidad
+- [x] **8 targets de modulacion**: relativa, dominante, subdominante, cromaticas, Coltrane
+- [x] **Coltrane changes**: modulaciones por 3as mayores (Giant Steps)
+- [x] UI: slider probabilidad (0-50%), selector nivel, checkbox retorno
+- [x] Preview con indicadores de modulacion [→ G]
+- [x] Walking bass adaptado a modulaciones
+
+#### Nuevos Acordes v0.7
+
+| Categoria | Acordes |
+|-----------|---------|
+| **Borrowed** | bVImaj7, bIIImaj7, IVm7, bIImaj7 (Napolitana) |
+| **Dominantes** | V7b13, V7#11, V7sus4 |
+| **Suspendidos** | IIsus4, Isus2 |
+| **Upper structures** | V7#9#5 (Hendrix), IVmaj7#11 (Lydian) |
+| **Coltrane** | bIII7, bVI7, VI7 |
+
+#### Targets de Modulacion
+
+| Nivel | Targets | Ejemplo (desde C) |
+|-------|---------|-------------------|
+| **Basicas** | Relativa, Dominante, Subdominante | Am, G, F |
+| **Extendidas** | + Cromaticas | Db, B |
+| **Coltrane** | + 3as mayores/menores | Ab, E, Eb |
+
 ### v1.0.0 - Release
 
-- [ ] Todos los voicings funcionando
-- [ ] Walking bass opcional
-- [ ] Presets de estilo
-- [ ] Sin crashes
+- [ ] Estabilidad completa
+- [ ] Documentacion detallada
+- [ ] Tests automatizados
 
 ## Notas Tecnicas
 
@@ -276,6 +303,7 @@ Turnarounds:
 
 ## Changelog
 
+- **02 ene 2026**: v0.7.0 - Modulaciones + 15 acordes nuevos (borrowed, Coltrane, upper structures)
 - **02 ene 2026**: v0.6.0 - Presets de estilo (Bebop, Bossa Nova, Modal, Ballad)
 - **02 ene 2026**: v0.5.0 - Dominantes secundarios (V7/ii, V7/V), acordes dim7 de paso
 - **02 ene 2026**: v0.4.0 - Tresillos swing + Comping RH (Charleston, Anticipation, etc.)

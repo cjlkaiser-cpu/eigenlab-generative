@@ -4,7 +4,7 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 
 ## Estado
 
-**Version:** 0.3.0 (Alpha)
+**Version:** 0.4.0 (Alpha)
 
 ## Caracteristicas
 
@@ -181,19 +181,21 @@ Turnarounds:
 - [x] Variacion aleatoria en beat 2 (escalar/arpegio/cromatico)
 - [x] Duraciones mixtas (negras + corcheas)
 
-### v0.4.0 - Ritmo
+### v0.4.0 - Swing & Comping ✓
 
-- [ ] Comping patterns (ritmos de acompanamiento)
-- [ ] Charleston, anticipaciones
-- [ ] Swing feel
+- [x] Tresillos swing autenticos (ratio 2:1)
+- [x] `addTuplet(fraction(3,2), fraction(1,4))` para swing feel
+- [x] Comping RH: Bloque, Charleston, Reverse Charleston, Anticipation, Syncopated
+- [x] Silencios ritmicos entre acordes
+- [x] Selector UI para estilo de comping
 
-### v0.4.0 - Mas Sustituciones
+### v0.5.0 - Mas Sustituciones
 
 - [ ] Dominantes secundarios (V7/ii, V7/V)
 - [ ] Acordes de paso diminuidos
 - [ ] Cadenas de ii-V
 
-### v0.5.0 - Estilos
+### v0.6.0 - Estilos
 
 - [ ] Preset: Bebop (rapido, alterados)
 - [ ] Preset: Modal (menos cambios)
@@ -238,6 +240,7 @@ Turnarounds:
 
 ## Changelog
 
+- **02 ene 2026**: v0.4.0 - Tresillos swing + Comping RH (Charleston, Anticipation, etc.)
 - **02 ene 2026**: v0.3.0 - Blue Note style: double chromatic, enclosures, corcheas swing
 - **02 ene 2026**: v0.2.0 - Walking bass con 4 patrones y aproximaciones
 - **02 ene 2026**: v0.1.0 - Version inicial con voicings shell/drop2/rootless

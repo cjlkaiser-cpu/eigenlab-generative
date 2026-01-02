@@ -7,6 +7,7 @@
  * v0.1: Acordes de 7a, shell voicings, ii-V-I
  * v0.2: Walking bass opcional
  * v0.3: Blue Note style (double chromatic, enclosures, corcheas swing)
+ * v0.4: Tresillos swing + Comping RH (Charleston, Anticipation, etc.)
  *
  * Basado en el motor de Markov de RameauGenerator.
  */
@@ -20,7 +21,7 @@ MuseScore {
     id: plugin
     title: "Rameau Jazz"
     description: "Genera progresiones jazz con acordes de 7a y voicings"
-    version: "0.3.0"
+    version: "0.4.0"
     pluginType: "dialog"
 
     width: 400
@@ -108,9 +109,22 @@ MuseScore {
     property int selectedWalkingPattern: 0
 
     // Probabilidades de variacion (estilo Blue Note)
-    property real probEighthNotes: 0.25      // 25% añade corcheas swing
+    property real probSwingTriplet: 0.25     // 25% añade tresillo swing
     property real probDoubleChromatic: 0.20  // 20% double chromatic approach
     property real probEnclosure: 0.15        // 15% enclosure (arriba-abajo-target)
+
+    // Tipos de duracion para walking bass
+    // "quarter" = negra (1/4)
+    // "swing_long" = parte larga del tresillo (2/3 de negra)
+    // "swing_short" = parte corta del tresillo (1/3 de negra)
+
+    // ========== COMPING RH (v0.4) ==========
+
+    property var compingStyles: ["Bloque (redonda)", "Charleston", "Reverse Charleston", "Anticipation", "Syncopated"]
+    property int selectedCompingStyle: 0
+
+    // Probabilidades de variacion en comping
+    property real probCompingVariation: 0.30  // 30% varia el patron
 
     // ========== ESTADO ==========
 
@@ -438,7 +452,7 @@ MuseScore {
         if (selectedWalkingPattern === 0) {
 
             // Beat 1: SIEMPRE root (ancla)
-            notes.push({ pitch: bassRoot, dur: 0.25 });
+            notes.push({ pitch: bassRoot, dur: "quarter" });
 
             // Beat 2: Variacion (escalar, arpegio, o cromatico)
             var beat2;
@@ -449,7 +463,7 @@ MuseScore {
             } else {
                 beat2 = ascending ? (bassRoot + 1) : (bassRoot - 1);  // Cromatico
             }
-            notes.push({ pitch: beat2, dur: 0.25 });
+            notes.push({ pitch: beat2, dur: "quarter" });
 
             // Beat 3: Target harmonico con variacion
             var beat3;
@@ -461,74 +475,75 @@ MuseScore {
                 beat3 = ascending ? seventh : (sixth - 12);
             }
 
-            // ¿Corcheas swing en beat 3-4? (25% probabilidad)
-            if (r3 < probEighthNotes) {
-                // Dos corcheas en beat 3, luego approach
-                notes.push({ pitch: beat3, dur: 0.125 });
+            // ¿Tresillo swing en beat 3-4? (25% probabilidad)
+            if (r3 < probSwingTriplet) {
+                // TRESILLO SWING: nota larga (2/3) + nota corta (1/3)
+                // Esto crea el autentico swing feel de jazz
+                notes.push({ pitch: beat3, dur: "swing_long" });
 
-                // Ghost note o passing tone entre beat 3 y 4
+                // Ghost note o passing tone (parte corta del tresillo)
                 var ghost = (beat3 + (movingUp ? 1 : -1));
-                notes.push({ pitch: ghost, dur: 0.125 });
+                notes.push({ pitch: ghost, dur: "swing_short" });
 
-                // Beat 4: approach
+                // Beat 4: approach (negra normal)
                 var approach = movingUp ? approachBelow : approachAbove;
-                notes.push({ pitch: approach, dur: 0.25 });
+                notes.push({ pitch: approach, dur: "quarter" });
 
             } else {
                 // Normal: negras
-                notes.push({ pitch: beat3, dur: 0.25 });
+                notes.push({ pitch: beat3, dur: "quarter" });
 
                 // Beat 4: Elegir tipo de approach
                 if (r2 < probDoubleChromatic) {
-                    // Double chromatic: dos semitonos
-                    notes[2].dur = 0.125;  // Beat 3 como corchea
-                    notes.push({ pitch: doubleBelow, dur: 0.125 });
-                    notes.push({ pitch: approachBelow, dur: 0.25 });
+                    // Double chromatic con swing triplet
+                    notes[2].dur = "swing_long";
+                    notes.push({ pitch: doubleBelow, dur: "swing_short" });
+                    notes.push({ pitch: approachBelow, dur: "quarter" });
                 } else if (r2 < probDoubleChromatic + probEnclosure) {
-                    // Enclosure: arriba-abajo-target
-                    notes[2].dur = 0.125;
-                    notes.push({ pitch: approachAbove, dur: 0.125 });
-                    notes.push({ pitch: approachBelow, dur: 0.25 });
+                    // Enclosure con swing triplet
+                    notes[2].dur = "swing_long";
+                    notes.push({ pitch: approachAbove, dur: "swing_short" });
+                    notes.push({ pitch: approachBelow, dur: "quarter" });
                 } else {
                     // Simple chromatic approach
                     var approach = movingUp ? approachBelow : approachAbove;
-                    notes.push({ pitch: approach, dur: 0.25 });
+                    notes.push({ pitch: approach, dur: "quarter" });
                 }
             }
 
         // ========== OLEAJE (mas simple) ==========
         } else if (selectedWalkingPattern === 1) {
 
-            notes.push({ pitch: bassRoot, dur: 0.25 });
+            notes.push({ pitch: bassRoot, dur: "quarter" });
 
             if (ascending) {
                 var beat2 = (r1 < 0.5) ? second : third;
-                notes.push({ pitch: beat2, dur: 0.25 });
-                notes.push({ pitch: fifth, dur: 0.25 });
+                notes.push({ pitch: beat2, dur: "quarter" });
+                notes.push({ pitch: fifth, dur: "quarter" });
             } else {
                 var beat2 = (r1 < 0.5) ? (seventh - 12) : (sixth - 12);
-                notes.push({ pitch: beat2, dur: 0.25 });
-                notes.push({ pitch: fifth - 12, dur: 0.25 });
+                notes.push({ pitch: beat2, dur: "quarter" });
+                notes.push({ pitch: fifth - 12, dur: "quarter" });
             }
 
             var approach = movingUp ? approachBelow : approachAbove;
-            notes.push({ pitch: approach, dur: 0.25 });
+            notes.push({ pitch: approach, dur: "quarter" });
 
         // ========== ESCALAR ==========
         } else if (selectedWalkingPattern === 2) {
 
-            notes.push({ pitch: bassRoot, dur: 0.25 });
+            notes.push({ pitch: bassRoot, dur: "quarter" });
 
             if (ascending) {
-                notes.push({ pitch: second, dur: 0.25 });
-                notes.push({ pitch: third, dur: 0.25 });
+                notes.push({ pitch: second, dur: "quarter" });
+                notes.push({ pitch: third, dur: "quarter" });
             } else {
-                notes.push({ pitch: seventh - 12, dur: 0.25 });
-                notes.push({ pitch: sixth - 12, dur: 0.25 });
+                notes.push({ pitch: seventh - 12, dur: "quarter" });
+                notes.push({ pitch: sixth - 12, dur: "quarter" });
             }
 
             var approach = movingUp ? approachBelow : approachAbove;
-            notes.push({ pitch: approach, dur: 0.25 });
+            notes.push({ pitch: approach, dur: "quarter" });
 
         // ========== CROMATICO (chromatic walkup/down) ==========
         } else {
@@ -536,10 +551,10 @@ MuseScore {
             var dir = diff > 0 ? 1 : -1;
 
             // Chromatic 4: root + 3 semitonos hacia target
-            notes.push({ pitch: bassRoot, dur: 0.25 });
-            notes.push({ pitch: bassRoot + dir, dur: 0.25 });
-            notes.push({ pitch: bassRoot + dir * 2, dur: 0.25 });
-            notes.push({ pitch: targetBass - dir, dur: 0.25 });  // Approach
+            notes.push({ pitch: bassRoot, dur: "quarter" });
+            notes.push({ pitch: bassRoot + dir, dur: "quarter" });
+            notes.push({ pitch: bassRoot + dir * 2, dur: "quarter" });
+            notes.push({ pitch: targetBass - dir, dur: "quarter" });  // Approach
         }
 
         // Asegurar rango valido (C2-G3 = 36-55)
@@ -549,6 +564,80 @@ MuseScore {
         }
 
         return notes;
+    }
+
+    // ========== COMPING RH (v0.4) ==========
+
+    /**
+     * Genera patron ritmico de comping para RH
+     * Devuelve array de {beat, dur} donde beat es posicion en el compas
+     *
+     * Patrones tipicos de jazz:
+     *   Charleston:         beat 1 + & of 2
+     *   Reverse Charleston: & of 1 + beat 3
+     *   Anticipation:       & of 4 (anticipa siguiente acorde)
+     *   Syncopated:         varios patrones sincopados
+     */
+    function getCompingRhythm(chordIndex) {
+        var r = Math.random();
+        var rhythm = [];
+
+        if (selectedCompingStyle === 0) {
+            // BLOQUE: redonda en beat 1
+            rhythm.push({ beat: 1, dur: "whole" });
+
+        } else if (selectedCompingStyle === 1) {
+            // CHARLESTON: beat 1 + & of 2
+            // El patron mas comun en jazz comping
+            rhythm.push({ beat: 1, dur: "quarter" });      // Beat 1
+            rhythm.push({ beat: 2.5, dur: "quarter" });    // & of 2
+
+            // Variacion: a veces solo beat 1
+            if (r < probCompingVariation) {
+                rhythm = [{ beat: 1, dur: "half" }];
+            }
+
+        } else if (selectedCompingStyle === 2) {
+            // REVERSE CHARLESTON: & of 1 + beat 3
+            rhythm.push({ beat: 1.5, dur: "quarter" });    // & of 1
+            rhythm.push({ beat: 3, dur: "quarter" });      // Beat 3
+
+            // Variacion: a veces añade beat 4
+            if (r < probCompingVariation) {
+                rhythm.push({ beat: 4, dur: "quarter" });
+            }
+
+        } else if (selectedCompingStyle === 3) {
+            // ANTICIPATION: & of 4 (anticipa siguiente acorde)
+            // Solo toca en la segunda mitad del compas
+            rhythm.push({ beat: 2, dur: "quarter" });      // Beat 2
+            rhythm.push({ beat: 4.5, dur: "quarter" });    // & of 4 (anticipacion)
+
+            // Variacion: Charleston + anticipacion
+            if (r < probCompingVariation) {
+                rhythm = [
+                    { beat: 1, dur: "quarter" },
+                    { beat: 2.5, dur: "quarter" },
+                    { beat: 4.5, dur: "quarter" }
+                ];
+            }
+
+        } else {
+            // SYNCOPATED: patrones variados
+            var patterns = [
+                // Patron 1: off-beats
+                [{ beat: 1.5, dur: "quarter" }, { beat: 2.5, dur: "quarter" }, { beat: 4, dur: "quarter" }],
+                // Patron 2: Charleston extendido
+                [{ beat: 1, dur: "eighth" }, { beat: 2.5, dur: "quarter" }, { beat: 4.5, dur: "quarter" }],
+                // Patron 3: Sparse
+                [{ beat: 2, dur: "half" }],
+                // Patron 4: Busy
+                [{ beat: 1, dur: "quarter" }, { beat: 2, dur: "quarter" }, { beat: 3.5, dur: "quarter" }]
+            ];
+            rhythm = patterns[Math.floor(r * patterns.length)];
+        }
+
+        return rhythm;
     }
 
     // ========== UI ==========
@@ -691,6 +780,21 @@ MuseScore {
                         onCurrentIndexChanged: selectedWalkingPattern = currentIndex
                         background: Rectangle { color: enabled ? "#1a1408" : "#0a0a08"; radius: 4 }
                         contentItem: Text { text: walkingCombo.currentText; color: enabled ? "#f0c040" : "#604020"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Comping RH"; font.pixelSize: 11; color: "#a08040" }
+                    ComboBox {
+                        id: compingCombo
+                        Layout.fillWidth: true
+                        model: compingStyles
+                        currentIndex: 0
+                        onCurrentIndexChanged: selectedCompingStyle = currentIndex
+                        background: Rectangle { color: "#1a1408"; radius: 4 }
+                        contentItem: Text { text: compingCombo.currentText; color: "#f0c040"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
                     }
                 }
             }
@@ -840,29 +944,105 @@ MuseScore {
                     cursorLH.addNote(voicing.lh[l], true);
                 }
             } else {
-                // Walking bass con duraciones variables (Blue Note style)
+                // Walking bass con duraciones variables y tresillos swing
                 var walkingNotes = getWalkingBass(prog[i], nextDegree, keyPitch, i);
 
-                for (var w = 0; w < walkingNotes.length; w++) {
+                var w = 0;
+                while (w < walkingNotes.length) {
                     var note = walkingNotes[w];
 
-                    // Convertir duracion fraccionaria a MuseScore
-                    // 0.25 = negra (1/4), 0.125 = corchea (1/8)
-                    if (note.dur >= 0.25) {
-                        cursorLH.setDuration(1, 4);  // Negra
-                    } else {
-                        cursorLH.setDuration(1, 8);  // Corchea
-                    }
+                    if (note.dur === "quarter") {
+                        // Negra normal
+                        cursorLH.setDuration(1, 4);
+                        cursorLH.addNote(note.pitch, false);
+                        w++;
 
-                    cursorLH.addNote(note.pitch, false);
+                    } else if (note.dur === "swing_long") {
+                        // TRESILLO SWING: negra + corchea de tresillo = 2/3 + 1/3 del beat
+                        // Crear tresillo: 3 corcheas en espacio de 2 (= 1 negra)
+                        cursorLH.addTuplet(fraction(3, 2), fraction(1, 4));
+
+                        // Nota larga = negra de tresillo (2/3 del beat)
+                        cursorLH.setDuration(1, 4);
+                        cursorLH.addNote(note.pitch, false);
+
+                        // Siguiente nota debe ser swing_short
+                        w++;
+                        if (w < walkingNotes.length && walkingNotes[w].dur === "swing_short") {
+                            // Nota corta = corchea de tresillo (1/3 del beat)
+                            cursorLH.setDuration(1, 8);
+                            cursorLH.addNote(walkingNotes[w].pitch, false);
+                            w++;
+                        }
+
+                    } else {
+                        // Fallback: negra
+                        cursorLH.setDuration(1, 4);
+                        cursorLH.addNote(note.pitch, false);
+                        w++;
+                    }
                 }
             }
 
-            // RH: siempre redonda
-            cursorRH.setDuration(1, 1);
-            cursorRH.addNote(voicing.rh[0], false);
-            for (var r = 1; r < voicing.rh.length; r++) {
-                cursorRH.addNote(voicing.rh[r], true);
+            // RH: comping patterns
+            var compRhythm = getCompingRhythm(i);
+
+            for (var c = 0; c < compRhythm.length; c++) {
+                var comp = compRhythm[c];
+
+                // Silencio antes del beat si no es beat 1
+                if (c === 0 && comp.beat > 1) {
+                    // Calcular duracion del silencio inicial
+                    var restBeats = comp.beat - 1;
+                    if (restBeats >= 2) {
+                        cursorRH.setDuration(1, 2);  // Blanca
+                        cursorRH.addRest();
+                        restBeats -= 2;
+                    }
+                    if (restBeats >= 1) {
+                        cursorRH.setDuration(1, 4);  // Negra
+                        cursorRH.addRest();
+                        restBeats -= 1;
+                    }
+                    if (restBeats >= 0.5) {
+                        cursorRH.setDuration(1, 8);  // Corchea
+                        cursorRH.addRest();
+                    }
+                }
+
+                // Duracion del acorde
+                if (comp.dur === "whole") {
+                    cursorRH.setDuration(1, 1);
+                } else if (comp.dur === "half") {
+                    cursorRH.setDuration(1, 2);
+                } else if (comp.dur === "quarter") {
+                    cursorRH.setDuration(1, 4);
+                } else if (comp.dur === "eighth") {
+                    cursorRH.setDuration(1, 8);
+                } else {
+                    cursorRH.setDuration(1, 4);  // Default: negra
+                }
+
+                // Escribir acorde RH
+                cursorRH.addNote(voicing.rh[0], false);
+                for (var r = 1; r < voicing.rh.length; r++) {
+                    cursorRH.addNote(voicing.rh[r], true);
+                }
+
+                // Silencio entre acordes (si no es el ultimo)
+                if (c < compRhythm.length - 1) {
+                    var nextBeat = compRhythm[c + 1].beat;
+                    var currentEnd = comp.beat + (comp.dur === "whole" ? 4 : comp.dur === "half" ? 2 : comp.dur === "quarter" ? 1 : 0.5);
+                    var gapBeats = nextBeat - currentEnd;
+
+                    if (gapBeats >= 1) {
+                        cursorRH.setDuration(1, 4);
+                        cursorRH.addRest();
+                    } else if (gapBeats >= 0.5) {
+                        cursorRH.setDuration(1, 8);
+                        cursorRH.addRest();
+                    }
+                }
             }
         }
 

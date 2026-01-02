@@ -66,32 +66,40 @@ El plugin tiene todo el codigo inline (sin imports externos) debido a limitacion
 - [ ] Preferir cuerdas al aire cuando sea posible
 - [ ] Algoritmo de asignacion de cuerdas
 
-### v0.3.0 - Posiciones
+### v0.3.0 - Opciones de Salida
+
+- [ ] Selector en UI: tipo de salida
+- [ ] Acordes bloque (actual)
+- [ ] Arpegio ascendente (p-i-m-a)
+- [ ] Arpegio descendente (a-m-i-p)
+- [ ] Patron completo (p-i-m-a-m-i)
+- [ ] Selector de duracion base (corchea, semicorchea)
+
+### v0.4.0 - Posiciones
 
 - [ ] Calcular posicion de mano izquierda (traste base)
 - [ ] Mostrar posicion en la UI
 - [ ] Minimizar cambios de posicion entre acordes
 - [ ] Posiciones CAGED basicas
 
-### v0.4.0 - Diagramas de Acordes
+### v0.5.0 - Diagramas de Acordes
 
 - [ ] Generar diagrama de trastes sobre la partitura
 - [ ] Mostrar dedos (1-4) en cada cuerda
 - [ ] Indicar cejilla cuando aplique
 - [ ] Indicar cuerdas que no se tocan (X)
 
-### v0.5.0 - Tablatura
+### v0.6.0 - Tablatura
 
 - [ ] Generar tab simultanea con partitura
 - [ ] Asignacion optima de cuerdas
 - [ ] Indicar tecnicas (hammer-on, pull-off)
 
-### v0.6.0 - Arpegios
+### v0.7.0 - Patrones Avanzados
 
-- [ ] Patron de arpegio seleccionable (p-i-m-a)
 - [ ] Tremolo
 - [ ] Rasgueado basico
-- [ ] Ritmos tipicos de guitarra
+- [ ] Ritmos tipicos (bossa, vals, habanera)
 
 ### v1.0.0 - Release
 

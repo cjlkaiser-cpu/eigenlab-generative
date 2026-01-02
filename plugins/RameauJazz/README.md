@@ -38,18 +38,20 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 ### Implementado (v0.2.0)
 
 - Walking bass como opcion de output
-- 4 patrones de walking: 1-3-5-approach, 1-5-3-approach, 1-2-3-5, Cromatico
+- 4 patrones de walking: Oleaje, Ascendente, Descendente, Cromatico
 - Aproximaciones al siguiente acorde (look-ahead)
 - Selector de estilo de bajo (Bloque vs Walking)
 
 #### Patrones Walking Bass
 
-| Patron | Descripcion | Ejemplo en Cmaj7→Dm7 |
-|--------|-------------|----------------------|
-| **1-3-5-approach** | Root, 3rd, 5th, approach | C - E - G - C# |
-| **1-5-3-approach** | Root, 5th, 3rd, approach | C - G - E - C# |
-| **1-2-3-5** | Escala ascendente | C - D - E - G |
-| **Cromatico** | Cromatico hacia target | C - C# - D - D# |
+| Patron | Descripcion | Comportamiento |
+|--------|-------------|----------------|
+| **Oleaje (realista)** | Alterna ↑/↓ cada acorde | Acorde 1: sube, Acorde 2: baja... |
+| **Ascendente** | Siempre 1→3→5→approach | Linea ascendente constante |
+| **Descendente** | Siempre 1→b7↓→5↓→approach | Linea descendente constante |
+| **Cromatico** | Cromatico hacia target | Movimiento por semitonos |
+
+El patron **Oleaje** es el mas realista - crea el movimiento ondulante tipico del walking bass de jazz, donde el bajo sube un compas y baja el siguiente.
 
 ### Progresiones tipicas generadas
 
@@ -137,7 +139,8 @@ Turnarounds:
 
 - [x] Linea de bajo en negras
 - [x] Aproximaciones cromaticas
-- [x] Patrones 1-3-5-approach, 1-5-3-approach, 1-2-3-5, Cromatico
+- [x] Oleaje realista (alterna ascendente/descendente)
+- [x] Patrones: Oleaje, Ascendente, Descendente, Cromatico
 
 ### v0.3.0 - Ritmo
 

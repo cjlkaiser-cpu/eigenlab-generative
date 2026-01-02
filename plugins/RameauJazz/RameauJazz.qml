@@ -102,8 +102,9 @@ MuseScore {
     property var bassStyles: ["Bloque (redonda)", "Walking (negras)"]
     property int selectedBassStyle: 0  // 0=bloque, 1=walking
 
-    property var walkingPatterns: ["1-3-5-approach", "1-5-3-approach", "1-2-3-5", "Cromatico"]
+    property var walkingPatterns: ["Oleaje (realista)", "Ascendente", "Descendente", "Cromatico"]
     property int selectedWalkingPattern: 0
+    property int walkingDirection: 1  // 1=ascendente, -1=descendente (alterna en oleaje)
 
     // ========== ESTADO ==========
 
@@ -374,7 +375,7 @@ MuseScore {
      * nextDegree: siguiente grado (para approach note)
      * keyPitch: tonica en MIDI
      */
-    function getWalkingBass(currentDegree, nextDegree, keyPitch) {
+    function getWalkingBass(currentDegree, nextDegree, keyPitch, chordIndex) {
         var currentInfo = jazzDegrees[currentDegree] || jazzDegrees["Imaj7"];
         var nextInfo = jazzDegrees[nextDegree] || jazzDegrees["Imaj7"];
 
@@ -384,42 +385,62 @@ MuseScore {
         var chordType = chordTypes[currentInfo.type];
         var intervals = chordType.intervals;
 
-        // Obtener notas del acorde en octava baja (36-48)
+        // Notas del acorde actual
         var bassRoot = 36 + root;
-        var third = 36 + ((root + intervals[1]) % 12);
-        var fifth = 36 + ((root + intervals[2]) % 12);
+        var third = bassRoot + intervals[1];
+        var fifth = bassRoot + intervals[2];
+        var seventh = bassRoot + (intervals[3] || 10);  // Default b7
 
-        // Ajustar para que esten en rango
-        if (third < bassRoot) third += 12;
-        if (fifth < bassRoot) fifth += 12;
-
-        // Approach note: semitono arriba o abajo del target
+        // Target para approach
         var targetBass = 36 + targetRoot;
+
+        // Ajustar target a la octava más cercana
+        while (targetBass < bassRoot - 6) targetBass += 12;
+        while (targetBass > bassRoot + 6) targetBass -= 12;
+
+        // Approach notes (semitono arriba o abajo del target)
         var approachBelow = targetBass - 1;
         var approachAbove = targetBass + 1;
-        // Elegir approach mas cercano a la quinta
-        var approach = Math.abs(fifth - approachBelow) < Math.abs(fifth - approachAbove) ? approachBelow : approachAbove;
 
-        // Seleccionar patron
         var pattern;
+
         if (selectedWalkingPattern === 0) {
-            // 1-3-5-approach
-            pattern = [bassRoot, third, fifth, approach];
+            // OLEAJE (realista) - alterna ascendente/descendente
+            var direction = (chordIndex % 2 === 0) ? 1 : -1;  // Alterna cada acorde
+
+            if (direction === 1) {
+                // Ascendente: root → 3 → 5 → approach
+                pattern = [bassRoot, third, fifth, approachBelow];
+            } else {
+                // Descendente: root → 7(octava abajo) → 5 → approach
+                var lowSeventh = seventh - 12;
+                var lowFifth = fifth - 12;
+                pattern = [bassRoot, lowSeventh, lowFifth, approachAbove];
+            }
+
         } else if (selectedWalkingPattern === 1) {
-            // 1-5-3-approach
-            pattern = [bassRoot, fifth, third, approach];
+            // Siempre ASCENDENTE: 1 → 3 → 5 → approach
+            pattern = [bassRoot, third, fifth, approachBelow];
+
         } else if (selectedWalkingPattern === 2) {
-            // 1-2-3-5 (escalar)
-            var second = bassRoot + 2;  // Tono entero arriba
-            pattern = [bassRoot, second, third, fifth];
+            // Siempre DESCENDENTE: 1 → b7(abajo) → 5(abajo) → approach
+            var lowSeventh = seventh - 12;
+            var lowFifth = fifth - 12;
+            pattern = [bassRoot, lowSeventh, lowFifth, approachAbove];
+
         } else {
-            // Cromatico
-            var chr1 = bassRoot + 1;
-            var chr2 = bassRoot + 2;
-            pattern = [bassRoot, chr1, chr2, approach];
+            // CROMATICO hacia el target
+            var diff = targetBass - bassRoot;
+            var step = diff > 0 ? 1 : -1;
+            pattern = [
+                bassRoot,
+                bassRoot + step,
+                bassRoot + step * 2,
+                targetBass - step  // approach
+            ];
         }
 
-        // Asegurar que todas las notas estan en rango (36-60)
+        // Asegurar rango (36-55 = C2-G3)
         for (var i = 0; i < pattern.length; i++) {
             while (pattern[i] < 36) pattern[i] += 12;
             while (pattern[i] > 55) pattern[i] -= 12;
@@ -718,7 +739,7 @@ MuseScore {
                 }
             } else {
                 // Walking bass (4 negras)
-                var walkingNotes = getWalkingBass(prog[i], nextDegree, keyPitch);
+                var walkingNotes = getWalkingBass(prog[i], nextDegree, keyPitch, i);
                 cursorLH.setDuration(1, 4);  // Negra
                 for (var w = 0; w < walkingNotes.length; w++) {
                     cursorLH.addNote(walkingNotes[w], false);

@@ -2,7 +2,7 @@
 
 ## Versiones
 
-### v0.1.0 - MVP (Actual)
+### v0.1.0 - MVP (Completado)
 - [x] Motor de Markov con 38 grados de acordes
 - [x] Matriz de transiciones completa
 - [x] Sistema de modulación (8 targets)
@@ -18,11 +18,11 @@
 
 ---
 
-### v0.2.0 - Export & Persistence
+### v0.2.0 - Export & Persistence (Actual)
 **Objetivo**: Permitir guardar y exportar el trabajo
 
 #### Export
-- [ ] **Export MIDI** - Descargar progresión como archivo .mid
+- [x] **Export MIDI** - Descargar progresión como archivo .mid
   - Incluir piano, bass y drums en tracks separados
   - Metadata (tempo, time signature, key)
 - [ ] **Export Audio** - Grabar y descargar como WAV/MP3
@@ -239,9 +239,10 @@
 ¿Interesado en contribuir? Ver [CONTRIBUTING.md](CONTRIBUTING.md)
 
 Prioridades actuales:
-1. Export MIDI (v0.2.0)
-2. Edición manual de acordes (v0.3.0)
-3. Generación de melodía (v0.4.0)
+1. ~~Export MIDI (v0.2.0)~~ ✅
+2. Export Audio WAV/MP3 (v0.2.0)
+3. Guardar progresiones (v0.2.0)
+4. Edición manual de acordes (v0.3.0)
 
 ---
 

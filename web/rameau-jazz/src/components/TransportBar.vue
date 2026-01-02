@@ -10,6 +10,32 @@
       <button class="btn btn-secondary" @click="generate" title="Generate new progression">
         Generar
       </button>
+      <div class="export-dropdown" ref="exportDropdown">
+        <button
+          class="btn btn-secondary export-btn"
+          @click="toggleExportMenu"
+          :disabled="!hasProgression"
+          title="Export MIDI"
+        >
+          <span class="export-icon">&#9835;</span>
+          Export
+          <span class="dropdown-arrow">&#9662;</span>
+        </button>
+        <div v-if="showExportMenu" class="export-menu">
+          <button class="export-option" @click="exportMidi(false)">
+            <span class="option-icon">&#127929;</span>
+            MIDI (Piano only)
+          </button>
+          <button class="export-option" @click="exportMidi(true)">
+            <span class="option-icon">&#127928;</span>
+            MIDI (Piano + Bass)
+          </button>
+          <button class="export-option" @click="exportMidiFull">
+            <span class="option-icon">&#127927;</span>
+            MIDI (Full band)
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Tempo Control -->
@@ -50,8 +76,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useHarmonyStore } from '../stores/harmony'
+import { downloadMidi, generateFilename } from '../export/MidiExporter.js'
 
 const harmonyStore = useHarmonyStore()
 
@@ -60,6 +87,11 @@ const currentMeasure = computed(() => harmonyStore.currentMeasure)
 const currentBeat = computed(() => harmonyStore.currentBeat)
 const tempo = computed(() => harmonyStore.tempo)
 const swingAmount = computed(() => harmonyStore.swingAmount)
+const hasProgression = computed(() => harmonyStore.progression.length > 0)
+
+// Export dropdown state
+const showExportMenu = ref(false)
+const exportDropdown = ref(null)
 
 // Tap tempo state
 const tapTimes = ref([])
@@ -134,6 +166,65 @@ function tapTempo() {
 function setSwing(event) {
   harmonyStore.setSwingAmount(event.target.value / 100)
 }
+
+// Export functions
+function toggleExportMenu() {
+  showExportMenu.value = !showExportMenu.value
+}
+
+function closeExportMenu(event) {
+  if (exportDropdown.value && !exportDropdown.value.contains(event.target)) {
+    showExportMenu.value = false
+  }
+}
+
+function exportMidi(includeBass) {
+  const filename = generateFilename(
+    harmonyStore.key,
+    harmonyStore.progression.length,
+    harmonyStore.stylePreset
+  )
+
+  downloadMidi({
+    progression: harmonyStore.progression,
+    key: harmonyStore.key,
+    tempo: harmonyStore.tempo,
+    voicingStyle: harmonyStore.voicingStyle,
+    includeBass,
+    includeDrums: false,
+    filename
+  })
+
+  showExportMenu.value = false
+}
+
+function exportMidiFull() {
+  const filename = generateFilename(
+    harmonyStore.key,
+    harmonyStore.progression.length,
+    harmonyStore.stylePreset
+  )
+
+  downloadMidi({
+    progression: harmonyStore.progression,
+    key: harmonyStore.key,
+    tempo: harmonyStore.tempo,
+    voicingStyle: harmonyStore.voicingStyle,
+    includeBass: true,
+    includeDrums: true,
+    filename
+  })
+
+  showExportMenu.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeExportMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeExportMenu)
+})
 </script>
 
 <style scoped>
@@ -277,5 +368,68 @@ function setSwing(event) {
   font-size: 18px;
   color: var(--accent-blue);
   min-width: 60px;
+}
+
+/* Export Dropdown */
+.export-dropdown {
+  position: relative;
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-icon {
+  font-size: 14px;
+}
+
+.dropdown-arrow {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.export-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  min-width: 180px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.export-option:hover {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.option-icon {
+  font-size: 16px;
 }
 </style>

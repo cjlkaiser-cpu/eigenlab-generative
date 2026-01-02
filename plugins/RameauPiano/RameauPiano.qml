@@ -5,6 +5,8 @@
  * - Mano izquierda (LH): Bajo + Tenor
  * - Mano derecha (RH): Alto + Soprano
  *
+ * v0.2: Patrones de mano izquierda (Alberti, arpegio, stride, etc.)
+ *
  * Basado en el motor de Markov de RameauGenerator.
  */
 
@@ -17,17 +19,25 @@ MuseScore {
     id: plugin
     title: "Rameau Piano"
     description: "Genera progresiones armonicas para piano (grand staff)"
-    version: "0.1.0"
+    version: "0.2.0"
     pluginType: "dialog"
 
     width: 380
-    height: 520
+    height: 600
 
     // ========== CONSTANTES PIANO ==========
 
     // Rangos por mano
     property var leftHandRange:  ({ min: 36, max: 60 })   // C2 - C4
     property var rightHandRange: ({ min: 55, max: 84 })   // G3 - C6
+
+    // ========== PATRONES MANO IZQUIERDA ==========
+
+    property var lhPatterns: ["Bloque", "Bajo-Acorde", "Arpegio ↑", "Arpegio ↓", "Alberti", "Stride"]
+    property int selectedLHPattern: 0  // 0=bloque, 1=bajo-acorde, 2=arp↑, 3=arp↓, 4=alberti, 5=stride
+
+    property var lhDurations: ["Blanca", "Negra", "Corchea"]
+    property int selectedLHDuration: 2  // 0=blanca, 1=negra, 2=corchea
 
     // ========== DATOS DE ACORDES ==========
 
@@ -393,6 +403,45 @@ MuseScore {
                 }
             }
 
+            Rectangle { Layout.fillWidth: true; height: 1; color: "#2a2a4a" }
+
+            // Patron mano izquierda (v0.2)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Patron LH"; font.pixelSize: 11; color: "#9090b0" }
+                    ComboBox {
+                        id: lhPatternCombo
+                        Layout.fillWidth: true
+                        model: lhPatterns
+                        currentIndex: 0
+                        onCurrentIndexChanged: selectedLHPattern = currentIndex
+                        background: Rectangle { color: "#1a1a2e"; radius: 4 }
+                        contentItem: Text { text: lhPatternCombo.currentText; color: "#f0f0f5"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Duracion LH"; font.pixelSize: 11; color: "#9090b0" }
+                    ComboBox {
+                        id: lhDurationCombo
+                        Layout.fillWidth: true
+                        model: lhDurations
+                        currentIndex: 2
+                        enabled: selectedLHPattern > 0  // Solo para patrones (no bloque)
+                        onCurrentIndexChanged: selectedLHDuration = currentIndex
+                        background: Rectangle { color: enabled ? "#1a1a2e" : "#0f0f1a"; radius: 4 }
+                        contentItem: Text { text: lhDurationCombo.currentText; color: enabled ? "#f0f0f5" : "#4a4a6a"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+            }
+
             // Info piano
             Rectangle {
                 Layout.fillWidth: true
@@ -406,7 +455,12 @@ MuseScore {
 
                     Column {
                         Text { text: "LH (Clave Fa)"; font.pixelSize: 9; color: "#6a6a8a"; horizontalAlignment: Text.AlignHCenter }
-                        Text { text: "Bass + Tenor"; font.pixelSize: 10; color: "#9090b0"; horizontalAlignment: Text.AlignHCenter }
+                        Text {
+                            text: selectedLHPattern === 0 ? "Bass + Tenor" : lhPatterns[selectedLHPattern]
+                            font.pixelSize: 10
+                            color: selectedLHPattern === 0 ? "#9090b0" : "#7070ff"
+                            horizontalAlignment: Text.AlignHCenter
+                        }
                     }
 
                     Rectangle { width: 1; height: 30; color: "#2a2a4a" }
@@ -481,6 +535,85 @@ MuseScore {
 
     // ========== ESCRIBIR EN PARTITURA ==========
 
+    /**
+     * Obtiene valores de duracion para setDuration
+     */
+    function getLHDurationValues() {
+        // selectedLHDuration: 0=blanca, 1=negra, 2=corchea
+        if (selectedLHDuration === 0) {
+            return { num: 1, den: 2 };   // Blanca
+        } else if (selectedLHDuration === 1) {
+            return { num: 1, den: 4 };   // Negra
+        } else {
+            return { num: 1, den: 8 };   // Corchea
+        }
+    }
+
+    /**
+     * Escribe LH en bloque (redonda)
+     */
+    function writeLHBlock(cursor, bass, tenor) {
+        cursor.setDuration(1, 1);  // Redonda
+        cursor.addNote(bass, false);
+        cursor.addNote(tenor, true);
+    }
+
+    /**
+     * Escribe LH bajo-acorde: bajo solo, luego tenor
+     */
+    function writeLHBajoAcorde(cursor, bass, tenor, dur) {
+        cursor.setDuration(dur.num, dur.den);
+        cursor.addNote(bass, false);  // Bajo solo
+        cursor.addNote(tenor, false); // Tenor solo
+    }
+
+    /**
+     * Escribe LH arpegio ascendente
+     */
+    function writeLHArpeggioUp(cursor, bass, tenor, dur) {
+        cursor.setDuration(dur.num, dur.den);
+        cursor.addNote(bass, false);
+        cursor.addNote(tenor, false);
+    }
+
+    /**
+     * Escribe LH arpegio descendente
+     */
+    function writeLHArpeggioDown(cursor, bass, tenor, dur) {
+        cursor.setDuration(dur.num, dur.den);
+        cursor.addNote(tenor, false);
+        cursor.addNote(bass, false);
+    }
+
+    /**
+     * Escribe LH Alberti bass: bajo-tenor-octava-tenor (o bajo-5ta-8va-5ta)
+     */
+    function writeLHAlberti(cursor, bass, tenor, dur) {
+        // Patron Alberti clasico: 1-5-8-5 o 1-3-5-3
+        var fifth = bass + 7;  // Quinta sobre el bajo
+        if (fifth > tenor) fifth = tenor;  // Usar tenor si es mas bajo
+
+        cursor.setDuration(dur.num, dur.den);
+        cursor.addNote(bass, false);    // 1
+        cursor.addNote(fifth, false);   // 5
+        cursor.addNote(tenor, false);   // 8 (o 3)
+        cursor.addNote(fifth, false);   // 5
+    }
+
+    /**
+     * Escribe LH Stride: bajo-acorde-octava-acorde
+     */
+    function writeLHStride(cursor, bass, tenor, dur) {
+        var octave = bass + 12;
+        if (octave > 60) octave = bass;  // Mantener en rango
+
+        cursor.setDuration(dur.num, dur.den);
+        cursor.addNote(bass, false);     // Bajo
+        cursor.addNote(tenor, false);    // Acorde (simplificado a tenor)
+        cursor.addNote(octave, false);   // Octava
+        cursor.addNote(tenor, false);    // Acorde
+    }
+
     function writeToScore() {
         if (!curScore) {
             previewText.text = "Error: No hay partitura abierta";
@@ -510,27 +643,48 @@ MuseScore {
         var cursorRH = curScore.newCursor();
         cursorRH.track = 0;
         cursorRH.rewind(0);
-        cursorRH.setDuration(1, 1);
+        cursorRH.setDuration(1, 1);  // RH siempre redondas
 
         // Mano izquierda (Bass + Tenor) - Pentagrama 2
         var cursorLH = curScore.newCursor();
         cursorLH.track = 4;
         cursorLH.rewind(0);
-        cursorLH.setDuration(1, 1);
+
+        var lhDur = getLHDurationValues();
 
         // Reset para cada pase
         currentVoices = [48, 52, 60, 64];
 
         for (var i = 0; i < prog.length; i++) {
             var voicing = getPianoVoicing(prog[i], keyPitch);
+            var bass = voicing[0];
+            var tenor = voicing[1];
 
-            // LH: Bass + Tenor
-            cursorLH.addNote(voicing[0], false);  // Bass
-            cursorLH.addNote(voicing[1], true);   // Tenor (add to chord)
-
-            // RH: Alto + Soprano
+            // RH: siempre bloque (Alto + Soprano)
+            cursorRH.setDuration(1, 1);
             cursorRH.addNote(voicing[2], false);  // Alto
             cursorRH.addNote(voicing[3], true);   // Soprano (add to chord)
+
+            // LH: segun patron seleccionado
+            if (selectedLHPattern === 0) {
+                // Bloque
+                writeLHBlock(cursorLH, bass, tenor);
+            } else if (selectedLHPattern === 1) {
+                // Bajo-Acorde
+                writeLHBajoAcorde(cursorLH, bass, tenor, lhDur);
+            } else if (selectedLHPattern === 2) {
+                // Arpegio ascendente
+                writeLHArpeggioUp(cursorLH, bass, tenor, lhDur);
+            } else if (selectedLHPattern === 3) {
+                // Arpegio descendente
+                writeLHArpeggioDown(cursorLH, bass, tenor, lhDur);
+            } else if (selectedLHPattern === 4) {
+                // Alberti
+                writeLHAlberti(cursorLH, bass, tenor, lhDur);
+            } else if (selectedLHPattern === 5) {
+                // Stride
+                writeLHStride(cursorLH, bass, tenor, lhDur);
+            }
         }
 
         curScore.endCmd();
@@ -540,7 +694,8 @@ MuseScore {
         for (var j = 0; j < prog.length; j++) {
             chordNames.push(degreeToChordName(prog[j], selectedKey));
         }
-        previewText.text = "LH: B+T | RH: A+S\n" + chordNames.join(" → ");
+        var patternName = lhPatterns[selectedLHPattern];
+        previewText.text = "LH: " + patternName + " | RH: Bloque\n" + chordNames.join(" → ");
         previewText.color = "#70ff70";
     }
 }

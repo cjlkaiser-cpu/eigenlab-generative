@@ -4,11 +4,11 @@ Generador de progresiones armonicas para **piano** en MuseScore 4.
 
 ## Estado
 
-**Version:** 0.1.0 (Alpha)
+**Version:** 0.2.0
 
 ## Caracteristicas
 
-### Implementado (v0.1.0)
+### Implementado (v0.2.0)
 
 - Motor de Markov con matrices de transicion (mismo que RameauSATB)
 - Distribucion SATB en grand staff:
@@ -20,12 +20,24 @@ Generador de progresiones armonicas para **piano** en MuseScore 4.
 - Hasta 32 acordes por progresion
 - Voice leading con minimo movimiento entre acordes
 
+#### Patrones Mano Izquierda (v0.2)
+
+| Patron | Descripcion | Notas |
+|--------|-------------|-------|
+| **Bloque** | Bass+Tenor juntos (redonda) | 2 |
+| **Bajo-Acorde** | Bajo solo, luego tenor | 2 |
+| **Arpegio ↑** | Bajo a agudo | 2 |
+| **Arpegio ↓** | Agudo a bajo | 2 |
+| **Alberti** | Clasico 1-5-8-5 | 4 |
+| **Stride** | Jazz/Ragtime bajo-acorde-8va-acorde | 4 |
+
+Duraciones LH: Blanca, Negra, Corchea
+
 ### Limitaciones Actuales
 
-- Solo acordes en bloque (no patrones ritmicos)
+- RH solo acordes en bloque (no patrones)
 - Sin duplicacion de octavas
-- Sin patrones de acompanamiento (Alberti, arpegio, etc.)
-- Distribucion fija LH/RH (no configurable)
+- Sin sincronizacion ritmica LH/RH avanzada
 
 ## Uso
 
@@ -34,8 +46,10 @@ Generador de progresiones armonicas para **piano** en MuseScore 4.
 3. Home → Complementos → Rameau Piano
 4. Seleccionar tonalidad y modo
 5. Configurar numero de acordes
-6. Click "Previsualizar" para ver progresion
-7. Click "Generar" para escribir en partitura
+6. **Nuevo:** Elegir patron LH (Bloque, Alberti, Stride, etc.)
+7. **Nuevo:** Si no es Bloque, elegir duracion LH
+8. Click "Previsualizar" para ver progresion
+9. Click "Generar" para escribir en partitura
 
 ## Instalacion
 
@@ -77,45 +91,56 @@ RameauPiano/
 | Alto | 58-72 | Bb3 - C5 |
 | Soprano | 64-79 | E4 - G5 |
 
+## Patrones LH en Detalle
+
+### Alberti Bass
+
+Patron clasico usado por Mozart, Haydn, etc.
+
+```
+Patron: 1 - 5 - 8 - 5
+        │   │   │   │
+       Do  Sol Do' Sol
+        ↓   ↓   ↓   ↓
+       bajo 5ta 8va 5ta
+```
+
+### Stride
+
+Patron de jazz/ragtime con salto bajo-acorde.
+
+```
+Patron: bajo - acorde - 8va - acorde
+         │       │       │      │
+        Do    Sol+Mi    Do'  Sol+Mi
+         ↓       ↓       ↓      ↓
+       grave   medio   agudo  medio
+```
+
 ## Roadmap
 
-### v0.2.0 - Duplicacion de Octavas
-
-- [ ] Opcion para duplicar bajo 8va abajo
-- [ ] Opcion para duplicar soprano 8va arriba
-- [ ] Control de densidad (4, 5 o 6 voces)
-
-### v0.3.0 - Patrones Mano Izquierda
-
-- [ ] Acordes bloque (actual)
-- [ ] Bajo + acorde (oom-pah)
-- [ ] Arpegio ascendente
-- [ ] Arpegio descendente
-- [ ] Alberti bass
-- [ ] Stride (bajo-acorde alternado)
-
-### v0.4.0 - Patrones Mano Derecha
+### v0.3.0 - Patrones Mano Derecha
 
 - [ ] Acordes bloque (actual)
 - [ ] Melodia + acompanamiento
 - [ ] Arpegio
 - [ ] Broken chords
 
-### v0.5.0 - Ritmo
+### v0.4.0 - Sincronizacion
 
-- [ ] Duraciones configurables (redonda, blanca, negra)
-- [ ] Patrones ritmicos predefinidos
-- [ ] Sincopa basica
+- [ ] Coordinar duraciones LH/RH
+- [ ] Patrones ritmicos combinados
+- [ ] Compases completos
 
-### v0.6.0 - Estilos
+### v0.5.0 - Estilos
 
-- [ ] Preset: Coral (acordes bloque)
-- [ ] Preset: Clasico (Alberti + melodia)
+- [ ] Preset: Coral (acordes bloque ambas manos)
+- [ ] Preset: Clasico (Alberti LH + melodia RH)
 - [ ] Preset: Romantico (arpegios amplios)
 - [ ] Preset: Pop (bajo + acordes)
-- [ ] Preset: Jazz (voicings extendidos)
+- [ ] Preset: Jazz (stride + voicings)
 
-### v0.7.0 - Acordes de 7a
+### v0.6.0 - Acordes de 7a
 
 - [ ] Toggle triadas / 7as
 - [ ] Maj7, m7, dom7, dim7
@@ -150,4 +175,5 @@ El algoritmo busca minimizar el movimiento total de las voces:
 
 ## Changelog
 
+- **02 ene 2026**: v0.2.0 - Patrones LH (Bloque, Alberti, Stride, Arpegios)
 - **01 ene 2026**: v0.1.0 - Version inicial con distribucion LH/RH basica

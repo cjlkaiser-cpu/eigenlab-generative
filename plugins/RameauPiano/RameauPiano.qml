@@ -6,6 +6,7 @@
  * - Mano derecha (RH): Alto + Soprano
  *
  * v0.2: Patrones de mano izquierda (Alberti, arpegio, stride, etc.)
+ * v0.3: Patrones de mano derecha (arpegio, melodia destacada)
  *
  * Basado en el motor de Markov de RameauGenerator.
  */
@@ -19,11 +20,11 @@ MuseScore {
     id: plugin
     title: "Rameau Piano"
     description: "Genera progresiones armonicas para piano (grand staff)"
-    version: "0.2.0"
+    version: "0.3.0"
     pluginType: "dialog"
 
     width: 380
-    height: 600
+    height: 680
 
     // ========== CONSTANTES PIANO ==========
 
@@ -38,6 +39,14 @@ MuseScore {
 
     property var lhDurations: ["Blanca", "Negra", "Corchea"]
     property int selectedLHDuration: 2  // 0=blanca, 1=negra, 2=corchea
+
+    // ========== PATRONES MANO DERECHA (v0.3) ==========
+
+    property var rhPatterns: ["Bloque", "Arpegio ↑", "Arpegio ↓", "Melodia"]
+    property int selectedRHPattern: 0  // 0=bloque, 1=arp↑, 2=arp↓, 3=melodia
+
+    property var rhDurations: ["Blanca", "Negra", "Corchea"]
+    property int selectedRHDuration: 2  // 0=blanca, 1=negra, 2=corchea
 
     // ========== DATOS DE ACORDES ==========
 
@@ -442,6 +451,43 @@ MuseScore {
                 }
             }
 
+            // Patron mano derecha (v0.3)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Patron RH"; font.pixelSize: 11; color: "#9090b0" }
+                    ComboBox {
+                        id: rhPatternCombo
+                        Layout.fillWidth: true
+                        model: rhPatterns
+                        currentIndex: 0
+                        onCurrentIndexChanged: selectedRHPattern = currentIndex
+                        background: Rectangle { color: "#1a1a2e"; radius: 4 }
+                        contentItem: Text { text: rhPatternCombo.currentText; color: "#f0f0f5"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Duracion RH"; font.pixelSize: 11; color: "#9090b0" }
+                    ComboBox {
+                        id: rhDurationCombo
+                        Layout.fillWidth: true
+                        model: rhDurations
+                        currentIndex: 2
+                        enabled: selectedRHPattern > 0  // Solo para patrones (no bloque)
+                        onCurrentIndexChanged: selectedRHDuration = currentIndex
+                        background: Rectangle { color: enabled ? "#1a1a2e" : "#0f0f1a"; radius: 4 }
+                        contentItem: Text { text: rhDurationCombo.currentText; color: enabled ? "#f0f0f5" : "#4a4a6a"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+            }
+
             // Info piano
             Rectangle {
                 Layout.fillWidth: true
@@ -467,7 +513,12 @@ MuseScore {
 
                     Column {
                         Text { text: "RH (Clave Sol)"; font.pixelSize: 9; color: "#6a6a8a"; horizontalAlignment: Text.AlignHCenter }
-                        Text { text: "Alto + Soprano"; font.pixelSize: 10; color: "#9090b0"; horizontalAlignment: Text.AlignHCenter }
+                        Text {
+                            text: selectedRHPattern === 0 ? "Alto + Soprano" : rhPatterns[selectedRHPattern]
+                            font.pixelSize: 10
+                            color: selectedRHPattern === 0 ? "#9090b0" : "#7070ff"
+                            horizontalAlignment: Text.AlignHCenter
+                        }
                     }
                 }
             }
@@ -614,6 +665,63 @@ MuseScore {
         cursor.addNote(tenor, false);    // Acorde
     }
 
+    // ========== PATRONES MANO DERECHA (v0.3) ==========
+
+    /**
+     * Obtiene valores de duracion para RH
+     */
+    function getRHDurationValues() {
+        if (selectedRHDuration === 0) {
+            return { num: 1, den: 2 };   // Blanca
+        } else if (selectedRHDuration === 1) {
+            return { num: 1, den: 4 };   // Negra
+        } else {
+            return { num: 1, den: 8 };   // Corchea
+        }
+    }
+
+    /**
+     * Escribe RH en bloque (redonda)
+     */
+    function writeRHBlock(cursor, alto, soprano) {
+        cursor.setDuration(1, 1);  // Redonda
+        cursor.addNote(alto, false);
+        cursor.addNote(soprano, true);
+    }
+
+    /**
+     * Escribe RH arpegio ascendente
+     */
+    function writeRHArpeggioUp(cursor, alto, soprano, dur) {
+        cursor.setDuration(dur.num, dur.den);
+        cursor.addNote(alto, false);
+        cursor.addNote(soprano, false);
+    }
+
+    /**
+     * Escribe RH arpegio descendente
+     */
+    function writeRHArpeggioDown(cursor, alto, soprano, dur) {
+        cursor.setDuration(dur.num, dur.den);
+        cursor.addNote(soprano, false);
+        cursor.addNote(alto, false);
+    }
+
+    /**
+     * Escribe RH melodia: soprano destacada (mas larga), alto acompana
+     * Soprano en blanca, alto en corcheas
+     */
+    function writeRHMelodia(cursor, alto, soprano, dur) {
+        // Soprano destacada (duracion doble)
+        var melodyDur = { num: dur.num, den: Math.max(1, dur.den / 2) };
+
+        cursor.setDuration(melodyDur.num, melodyDur.den);
+        cursor.addNote(soprano, false);  // Melodia
+
+        cursor.setDuration(dur.num, dur.den);
+        cursor.addNote(alto, false);     // Acompanamiento
+    }
+
     function writeToScore() {
         if (!curScore) {
             previewText.text = "Error: No hay partitura abierta";
@@ -643,7 +751,6 @@ MuseScore {
         var cursorRH = curScore.newCursor();
         cursorRH.track = 0;
         cursorRH.rewind(0);
-        cursorRH.setDuration(1, 1);  // RH siempre redondas
 
         // Mano izquierda (Bass + Tenor) - Pentagrama 2
         var cursorLH = curScore.newCursor();
@@ -651,6 +758,7 @@ MuseScore {
         cursorLH.rewind(0);
 
         var lhDur = getLHDurationValues();
+        var rhDur = getRHDurationValues();
 
         // Reset para cada pase
         currentVoices = [48, 52, 60, 64];
@@ -659,11 +767,23 @@ MuseScore {
             var voicing = getPianoVoicing(prog[i], keyPitch);
             var bass = voicing[0];
             var tenor = voicing[1];
+            var alto = voicing[2];
+            var soprano = voicing[3];
 
-            // RH: siempre bloque (Alto + Soprano)
-            cursorRH.setDuration(1, 1);
-            cursorRH.addNote(voicing[2], false);  // Alto
-            cursorRH.addNote(voicing[3], true);   // Soprano (add to chord)
+            // RH: segun patron seleccionado
+            if (selectedRHPattern === 0) {
+                // Bloque
+                writeRHBlock(cursorRH, alto, soprano);
+            } else if (selectedRHPattern === 1) {
+                // Arpegio ascendente
+                writeRHArpeggioUp(cursorRH, alto, soprano, rhDur);
+            } else if (selectedRHPattern === 2) {
+                // Arpegio descendente
+                writeRHArpeggioDown(cursorRH, alto, soprano, rhDur);
+            } else if (selectedRHPattern === 3) {
+                // Melodia
+                writeRHMelodia(cursorRH, alto, soprano, rhDur);
+            }
 
             // LH: segun patron seleccionado
             if (selectedLHPattern === 0) {
@@ -694,8 +814,9 @@ MuseScore {
         for (var j = 0; j < prog.length; j++) {
             chordNames.push(degreeToChordName(prog[j], selectedKey));
         }
-        var patternName = lhPatterns[selectedLHPattern];
-        previewText.text = "LH: " + patternName + " | RH: Bloque\n" + chordNames.join(" → ");
+        var lhName = lhPatterns[selectedLHPattern];
+        var rhName = rhPatterns[selectedRHPattern];
+        previewText.text = "LH: " + lhName + " | RH: " + rhName + "\n" + chordNames.join(" → ");
         previewText.color = "#70ff70";
     }
 }

@@ -4,11 +4,11 @@ Generador de progresiones armonicas para **piano** en MuseScore 4.
 
 ## Estado
 
-**Version:** 0.2.0
+**Version:** 0.3.0
 
 ## Caracteristicas
 
-### Implementado (v0.2.0)
+### Implementado (v0.3.0)
 
 - Motor de Markov con matrices de transicion (mismo que RameauSATB)
 - Distribucion SATB en grand staff:
@@ -33,9 +33,19 @@ Generador de progresiones armonicas para **piano** en MuseScore 4.
 
 Duraciones LH: Blanca, Negra, Corchea
 
+#### Patrones Mano Derecha (v0.3)
+
+| Patron | Descripcion | Notas |
+|--------|-------------|-------|
+| **Bloque** | Alto+Soprano juntos (redonda) | 2 |
+| **Arpegio ↑** | Alto a Soprano | 2 |
+| **Arpegio ↓** | Soprano a Alto | 2 |
+| **Melodia** | Soprano destacada, Alto acompaña | 2 |
+
+Duraciones RH: Blanca, Negra, Corchea
+
 ### Limitaciones Actuales
 
-- RH solo acordes en bloque (no patrones)
 - Sin duplicacion de octavas
 - Sin sincronizacion ritmica LH/RH avanzada
 
@@ -46,10 +56,12 @@ Duraciones LH: Blanca, Negra, Corchea
 3. Home → Complementos → Rameau Piano
 4. Seleccionar tonalidad y modo
 5. Configurar numero de acordes
-6. **Nuevo:** Elegir patron LH (Bloque, Alberti, Stride, etc.)
-7. **Nuevo:** Si no es Bloque, elegir duracion LH
-8. Click "Previsualizar" para ver progresion
-9. Click "Generar" para escribir en partitura
+6. Elegir patron LH (Bloque, Alberti, Stride, etc.)
+7. Si no es Bloque, elegir duracion LH
+8. **Nuevo:** Elegir patron RH (Bloque, Arpegio, Melodia)
+9. **Nuevo:** Si no es Bloque, elegir duracion RH
+10. Click "Previsualizar" para ver progresion
+11. Click "Generar" para escribir en partitura
 
 ## Instalacion
 
@@ -119,13 +131,6 @@ Patron: bajo - acorde - 8va - acorde
 
 ## Roadmap
 
-### v0.3.0 - Patrones Mano Derecha
-
-- [ ] Acordes bloque (actual)
-- [ ] Melodia + acompanamiento
-- [ ] Arpegio
-- [ ] Broken chords
-
 ### v0.4.0 - Sincronizacion
 
 - [ ] Coordinar duraciones LH/RH
@@ -175,5 +180,6 @@ El algoritmo busca minimizar el movimiento total de las voces:
 
 ## Changelog
 
+- **02 ene 2026**: v0.3.0 - Patrones RH (Bloque, Arpegio, Melodia)
 - **02 ene 2026**: v0.2.0 - Patrones LH (Bloque, Alberti, Stride, Arpegios)
 - **01 ene 2026**: v0.1.0 - Version inicial con distribucion LH/RH basica

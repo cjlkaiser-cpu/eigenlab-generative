@@ -1,36 +1,41 @@
 /**
- * PdfExporter.js - Export lead sheets in Real Book style
+ * PdfExporter.js - Export lead sheets in authentic Real Book style
  *
- * Generates professional jazz lead sheets with:
- * - Title and metadata
- * - Chord symbols above staff
+ * Features:
+ * - Treble clef + key signature + time signature
+ * - Chord symbols above staff (handwritten style)
  * - Slash notation for rhythm
- * - 4 bars per line (configurable)
- * - Clean, minimalist design
+ * - Professional layout like the original Real Book
  */
 
 import { jsPDF } from 'jspdf'
 
 // Page dimensions (Letter size in mm)
-const PAGE_WIDTH = 215.9
-const PAGE_HEIGHT = 279.4
-const MARGIN_LEFT = 20
-const MARGIN_RIGHT = 20
-const MARGIN_TOP = 25
-const MARGIN_BOTTOM = 20
+const PAGE = {
+  width: 215.9,
+  height: 279.4,
+  marginLeft: 18,
+  marginRight: 18,
+  marginTop: 20,
+  marginBottom: 15
+}
 
-// Staff dimensions
-const STAFF_HEIGHT = 24
-const STAFF_LINE_SPACING = 3
-const STAFF_SPACING = 45 // Space between systems
-const BARS_PER_LINE = 4
+// Staff configuration
+const STAFF = {
+  lineSpacing: 2.2,      // Space between staff lines
+  height: 8.8,           // Total staff height (4 spaces)
+  systemSpacing: 32,     // Space between systems
+  barsPerLine: 4,
+  clefWidth: 12,         // Space for clef + key sig + time sig
+  barLinePadding: 3
+}
 
 // Colors
-const BLACK = '#000000'
-const GRAY = '#666666'
+const INK = '#1a1a1a'
+const GRAY = '#555555'
 
 /**
- * Main export function - generates Real Book style PDF
+ * Main export function
  */
 export function exportToPdf({
   progression,
@@ -39,7 +44,7 @@ export function exportToPdf({
   tempo = 120,
   style = 'Swing',
   composer = 'RameauJazz',
-  barsPerLine = BARS_PER_LINE
+  barsPerLine = 4
 }) {
   if (!progression || progression.length === 0) {
     throw new Error('No progression to export')
@@ -51,24 +56,22 @@ export function exportToPdf({
     format: 'letter'
   })
 
-  // Set up fonts
-  doc.setFont('helvetica')
-
-  let y = MARGIN_TOP
+  let y = PAGE.marginTop
 
   // Draw header
-  y = drawHeader(doc, { title, key, tempo, style, composer }, y)
+  y = drawHeader(doc, { title, style, composer, tempo }, y)
 
-  // Calculate staff area
-  const staffWidth = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
-  const barWidth = staffWidth / barsPerLine
+  // Calculate dimensions
+  const contentWidth = PAGE.width - PAGE.marginLeft - PAGE.marginRight
+  const barWidth = (contentWidth - STAFF.clefWidth) / barsPerLine
 
-  // Draw chord chart
-  y = drawChordChart(doc, progression, {
+  // Draw systems
+  y = drawAllSystems(doc, progression, {
     startY: y,
-    staffWidth,
+    contentWidth,
     barWidth,
-    barsPerLine
+    barsPerLine,
+    key
   })
 
   // Draw footer
@@ -78,147 +81,299 @@ export function exportToPdf({
 }
 
 /**
- * Draw the header (title, key, tempo, etc.)
+ * Draw header with title and composer
  */
-function drawHeader(doc, { title, key, tempo, style, composer }, startY) {
+function drawHeader(doc, { title, style, composer, tempo }, startY) {
   let y = startY
 
-  // Title - large, bold, centered
-  doc.setFontSize(24)
-  doc.setFont('helvetica', 'bold')
-  doc.text(title.toUpperCase(), PAGE_WIDTH / 2, y, { align: 'center' })
-  y += 8
+  // Style indicator (top left, in parentheses)
+  doc.setFontSize(9)
+  doc.setFont('times', 'italic')
+  doc.setTextColor(GRAY)
+  doc.text(`(${style} ♩=${tempo})`, PAGE.marginLeft, y)
 
-  // Composer - right aligned, italic
+  // Title - centered, bold, large
+  doc.setFontSize(22)
+  doc.setFont('times', 'bold')
+  doc.setTextColor(INK)
+  const titleText = title.toUpperCase()
+  doc.text(titleText, PAGE.width / 2, y, { align: 'center' })
+
+  // Composer - right aligned
   doc.setFontSize(10)
-  doc.setFont('helvetica', 'italic')
-  doc.text(composer, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' })
-  y += 6
+  doc.setFont('times', 'italic')
+  doc.setTextColor(GRAY)
+  doc.text(`- ${composer}`, PAGE.width - PAGE.marginRight, y, { align: 'right' })
 
-  // Key and tempo - left side
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'normal')
+  y += 4
 
-  const keyName = getKeyName(key)
-  doc.text(`${keyName}`, MARGIN_LEFT, y)
+  // Decorative double line under title
+  const titleWidth = doc.getTextWidth(titleText)
+  const lineStart = (PAGE.width - titleWidth) / 2 - 10
+  const lineEnd = (PAGE.width + titleWidth) / 2 + 10
 
-  // Tempo with note symbol
-  doc.text(`${style}  ♩= ${tempo}`, MARGIN_LEFT + 30, y)
+  doc.setDrawColor(INK)
+  doc.setLineWidth(0.8)
+  doc.line(lineStart, y, lineEnd, y)
+  doc.setLineWidth(0.3)
+  doc.line(lineStart, y + 1.5, lineEnd, y + 1.5)
 
-  y += 12
+  y += 10
 
   return y
 }
 
 /**
- * Draw the chord chart with staff lines and chord symbols
+ * Draw all systems (lines of music)
  */
-function drawChordChart(doc, progression, { startY, staffWidth, barWidth, barsPerLine }) {
+function drawAllSystems(doc, progression, { startY, contentWidth, barWidth, barsPerLine, key }) {
   let y = startY
   let measureIndex = 0
   const totalMeasures = progression.length
+  let isFirstSystem = true
 
   while (measureIndex < totalMeasures) {
-    // Check if we need a new page
-    if (y + STAFF_SPACING > PAGE_HEIGHT - MARGIN_BOTTOM) {
+    // Check for page break
+    if (y + STAFF.systemSpacing > PAGE.height - PAGE.marginBottom) {
       doc.addPage()
-      y = MARGIN_TOP
+      y = PAGE.marginTop
+      isFirstSystem = true
     }
 
-    // Draw one line (system) of measures
     const measuresInLine = Math.min(barsPerLine, totalMeasures - measureIndex)
+    const isLastSystem = measureIndex + measuresInLine >= totalMeasures
 
-    // Draw staff lines
-    drawStaffLines(doc, MARGIN_LEFT, y, staffWidth, measuresInLine, barWidth)
-
-    // Draw chords and slashes for each measure
-    for (let i = 0; i < measuresInLine; i++) {
-      const chord = progression[measureIndex + i]
-      const x = MARGIN_LEFT + (i * barWidth)
-
-      // Draw chord symbol
-      drawChordSymbol(doc, chord, x + 2, y - 6)
-
-      // Draw rhythm slashes
-      drawSlashes(doc, x, y, barWidth)
-
-      // Draw bar number (small, at bottom)
-      if ((measureIndex + i) % 4 === 0) {
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(GRAY)
-        doc.text(`${measureIndex + i + 1}`, x + 1, y + STAFF_HEIGHT + 4)
-        doc.setTextColor(BLACK)
-      }
-    }
-
-    // Draw final barline (double for last line)
-    const isLastLine = measureIndex + measuresInLine >= totalMeasures
-    drawBarline(doc, MARGIN_LEFT + (measuresInLine * barWidth), y, isLastLine)
+    // Draw one system
+    drawSystem(doc, progression, {
+      startMeasure: measureIndex,
+      numMeasures: measuresInLine,
+      x: PAGE.marginLeft,
+      y: y,
+      barWidth,
+      key,
+      isFirstSystem,
+      isLastSystem
+    })
 
     measureIndex += measuresInLine
-    y += STAFF_SPACING
+    y += STAFF.systemSpacing
+    isFirstSystem = false
   }
 
   return y
 }
 
 /**
- * Draw 5-line staff with measure bars
+ * Draw a single system (one line of music)
  */
-function drawStaffLines(doc, x, y, width, numMeasures, barWidth) {
-  doc.setDrawColor(BLACK)
-  doc.setLineWidth(0.3)
+function drawSystem(doc, progression, { startMeasure, numMeasures, x, y, barWidth, key, isFirstSystem, isLastSystem }) {
+  let currentX = x
 
-  // Draw 5 staff lines
-  for (let i = 0; i < 5; i++) {
-    const lineY = y + (i * STAFF_LINE_SPACING)
-    doc.line(x, lineY, x + (numMeasures * barWidth), lineY)
+  // Draw clef, key sig, time sig on first system
+  if (isFirstSystem) {
+    currentX = drawClefAndSignatures(doc, x, y, key)
+  } else {
+    // Just draw clef on subsequent systems
+    currentX = drawTrebleClef(doc, x, y)
+    currentX += 4
   }
 
-  // Draw bar lines
-  for (let i = 0; i <= numMeasures; i++) {
-    const barX = x + (i * barWidth)
-    doc.line(barX, y, barX, y + (4 * STAFF_LINE_SPACING))
+  // Draw staff lines
+  const staffWidth = numMeasures * barWidth
+  drawStaffLines(doc, currentX, y, staffWidth)
+
+  // Draw initial bar line
+  drawBarLine(doc, currentX, y, false)
+
+  // Draw each measure
+  for (let i = 0; i < numMeasures; i++) {
+    const measureX = currentX + (i * barWidth)
+    const chord = progression[startMeasure + i]
+    const isLastMeasure = isLastSystem && i === numMeasures - 1
+
+    // Draw chord symbol above staff
+    drawChordSymbol(doc, chord, measureX + 2, y - 4, key)
+
+    // Draw slash notation
+    drawSlashNotation(doc, measureX, y, barWidth)
+
+    // Draw bar line at end of measure
+    const barLineX = measureX + barWidth
+    drawBarLine(doc, barLineX, y, isLastMeasure)
+
+    // Draw measure number (every 4 measures or at start of line)
+    if ((startMeasure + i) % 4 === 0 || i === 0) {
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(GRAY)
+      doc.text(`${startMeasure + i + 1}`, measureX + 1, y + STAFF.height + 5)
+      doc.setTextColor(INK)
+    }
   }
 }
 
 /**
- * Draw chord symbol above staff
+ * Draw treble clef, key signature, and time signature
  */
-function drawChordSymbol(doc, chord, x, y) {
-  const degree = chord.degree
-  const chordKey = chord.key
+function drawClefAndSignatures(doc, x, y, key) {
+  let currentX = x
 
-  // Convert degree to chord symbol
-  const symbol = degreeToChordSymbol(degree, chordKey)
+  // Draw treble clef
+  currentX = drawTrebleClef(doc, currentX, y)
+
+  // Draw key signature
+  currentX = drawKeySignature(doc, currentX, y, key)
+
+  // Draw time signature (4/4)
+  currentX = drawTimeSignature(doc, currentX, y)
+
+  return currentX + 2
+}
+
+/**
+ * Draw treble clef (stylized G clef)
+ */
+function drawTrebleClef(doc, x, y) {
+  doc.setFontSize(28)
+  doc.setFont('times', 'normal')
+  doc.setTextColor(INK)
+
+  // Use Unicode treble clef
+  doc.text('𝄞', x, y + 6)
+
+  return x + 8
+}
+
+/**
+ * Draw key signature (sharps or flats)
+ */
+function drawKeySignature(doc, x, y, key) {
+  const keySignatures = {
+    'C': { sharps: 0, flats: 0 },
+    'G': { sharps: 1, flats: 0 },
+    'D': { sharps: 2, flats: 0 },
+    'A': { sharps: 3, flats: 0 },
+    'E': { sharps: 4, flats: 0 },
+    'B': { sharps: 5, flats: 0 },
+    'Gb': { sharps: 0, flats: 6 },
+    'F': { sharps: 0, flats: 1 },
+    'Bb': { sharps: 0, flats: 2 },
+    'Eb': { sharps: 0, flats: 3 },
+    'Ab': { sharps: 0, flats: 4 },
+    'Db': { sharps: 0, flats: 5 }
+  }
+
+  const keySig = keySignatures[key] || { sharps: 0, flats: 0 }
 
   doc.setFontSize(14)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont('times', 'normal')
+
+  // Sharp positions (F, C, G, D, A, E, B)
+  const sharpYOffsets = [0, 3, -0.5, 2.5, 5.5, 1.5, 4.5]
+  // Flat positions (B, E, A, D, G, C, F)
+  const flatYOffsets = [4, 1, 4.5, 1.5, 5, 2, 5.5]
+
+  let currentX = x
+
+  if (keySig.sharps > 0) {
+    for (let i = 0; i < keySig.sharps; i++) {
+      const yOffset = sharpYOffsets[i] * (STAFF.lineSpacing / 2)
+      doc.text('♯', currentX, y + yOffset + 2)
+      currentX += 2.5
+    }
+  } else if (keySig.flats > 0) {
+    for (let i = 0; i < keySig.flats; i++) {
+      const yOffset = flatYOffsets[i] * (STAFF.lineSpacing / 2)
+      doc.text('♭', currentX, y + yOffset + 2)
+      currentX += 2.5
+    }
+  }
+
+  return currentX + 2
+}
+
+/**
+ * Draw time signature
+ */
+function drawTimeSignature(doc, x, y) {
+  doc.setFontSize(14)
+  doc.setFont('times', 'bold')
+  doc.setTextColor(INK)
+
+  // Draw 4/4
+  doc.text('4', x + 1, y + 2.5)
+  doc.text('4', x + 1, y + 6.5)
+
+  return x + 6
+}
+
+/**
+ * Draw 5 staff lines
+ */
+function drawStaffLines(doc, x, y, width) {
+  doc.setDrawColor(INK)
+  doc.setLineWidth(0.2)
+
+  for (let i = 0; i < 5; i++) {
+    const lineY = y + (i * STAFF.lineSpacing)
+    doc.line(x, lineY, x + width, lineY)
+  }
+}
+
+/**
+ * Draw bar line
+ */
+function drawBarLine(doc, x, y, isDouble) {
+  doc.setDrawColor(INK)
+
+  if (isDouble) {
+    // Final double bar line
+    doc.setLineWidth(0.3)
+    doc.line(x - 2, y, x - 2, y + STAFF.height)
+    doc.setLineWidth(1)
+    doc.line(x, y, x, y + STAFF.height)
+  } else {
+    doc.setLineWidth(0.3)
+    doc.line(x, y, x, y + STAFF.height)
+  }
+}
+
+/**
+ * Draw chord symbol
+ */
+function drawChordSymbol(doc, chord, x, y, globalKey) {
+  const symbol = degreeToChordSymbol(chord.degree, chord.key || globalKey)
+
+  // Use Times for handwritten look
+  doc.setFontSize(12)
+  doc.setFont('times', 'italic')
+  doc.setTextColor(INK)
   doc.text(symbol, x, y)
 }
 
 /**
- * Draw 4 rhythm slashes in a measure
+ * Draw slash notation (4 quarter note slashes)
  */
-function drawSlashes(doc, x, y, barWidth) {
-  const slashWidth = 4
-  const slashHeight = 8
-  const spacing = (barWidth - 8) / 4
+function drawSlashNotation(doc, x, y, barWidth) {
+  const slashSpacing = (barWidth - 6) / 4
+  const slashWidth = 3
+  const slashHeight = STAFF.lineSpacing * 1.5
 
-  doc.setLineWidth(1.5)
-  doc.setDrawColor(BLACK)
+  doc.setLineWidth(1.2)
+  doc.setDrawColor(INK)
+
+  // Center slashes in middle of staff
+  const centerY = y + STAFF.height / 2
 
   for (let i = 0; i < 4; i++) {
-    const slashX = x + 6 + (i * spacing)
-    const slashY = y + STAFF_LINE_SPACING // On second line from top
+    const slashX = x + 4 + (i * slashSpacing)
 
-    // Draw slash (diagonal line)
+    // Draw diagonal slash
     doc.line(
       slashX,
-      slashY + slashHeight / 2,
+      centerY + slashHeight / 2,
       slashX + slashWidth,
-      slashY - slashHeight / 2
+      centerY - slashHeight / 2
     )
   }
 
@@ -226,28 +381,58 @@ function drawSlashes(doc, x, y, barWidth) {
 }
 
 /**
- * Draw barline (single or double)
+ * Convert degree to chord symbol
  */
-function drawBarline(doc, x, y, isDouble) {
-  doc.setLineWidth(0.3)
+function degreeToChordSymbol(degree, key) {
+  const notes = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
+  const keyIndex = notes.indexOf(key) || 0
 
-  if (isDouble) {
-    // Double barline at end
-    doc.line(x - 2, y, x - 2, y + (4 * STAFF_LINE_SPACING))
-    doc.setLineWidth(1)
-    doc.line(x, y, x, y + (4 * STAFF_LINE_SPACING))
-    doc.setLineWidth(0.3)
+  // Parse degree
+  const degreeRoots = {
+    'I': 0, 'bII': 1, 'II': 2, 'bIII': 3, 'III': 4, 'IV': 5,
+    '#IV': 6, 'bV': 6, 'V': 7, 'bVI': 8, 'VI': 9, 'bVII': 10, 'VII': 11
   }
+
+  // Extract root and quality from degree
+  const match = degree.match(/^(b|#)?(I{1,3}|IV|V|VI{0,2})(.*?)(?:\/.*)?$/)
+
+  if (!match) return degree
+
+  const accidental = match[1] || ''
+  const roman = match[2]
+  let quality = match[3] || ''
+
+  const rootDegree = accidental + roman
+  const rootOffset = degreeRoots[rootDegree] ?? 0
+  const noteIndex = (keyIndex + rootOffset) % 12
+  const rootNote = notes[noteIndex]
+
+  // Format quality for Real Book style
+  quality = quality
+    .replace('maj7', 'maj7')
+    .replace('m7b5', '-7♭5')
+    .replace('m7', '-7')
+    .replace('m6', '-6')
+    .replace('m9', '-9')
+    .replace('dim7', '°7')
+    .replace('7alt', '7alt')
+    .replace('7b13', '7♭13')
+    .replace('7b9', '7♭9')
+    .replace('7#9', '7♯9')
+    .replace('7#11', '7♯11')
+    .replace('7sus4', '7sus')
+
+  return rootNote + quality
 }
 
 /**
- * Draw footer with generation info
+ * Draw footer
  */
 function drawFooter(doc) {
-  const y = PAGE_HEIGHT - MARGIN_BOTTOM + 5
+  const y = PAGE.height - PAGE.marginBottom + 8
 
   doc.setFontSize(8)
-  doc.setFont('helvetica', 'italic')
+  doc.setFont('times', 'italic')
   doc.setTextColor(GRAY)
 
   const date = new Date().toLocaleDateString('es', {
@@ -256,80 +441,11 @@ function drawFooter(doc) {
     day: 'numeric'
   })
 
-  doc.text(`Generated by RameauJazz - ${date}`, PAGE_WIDTH / 2, y, { align: 'center' })
-  doc.setTextColor(BLACK)
+  doc.text(`Generated by RameauJazz — ${date}`, PAGE.width / 2, y, { align: 'center' })
 }
 
 /**
- * Convert degree notation to chord symbol
- */
-function degreeToChordSymbol(degree, key) {
-  // Map key to note name
-  const keyNotes = {
-    'C': 'C', 'Db': 'Db', 'D': 'D', 'Eb': 'Eb', 'E': 'E', 'F': 'F',
-    'Gb': 'Gb', 'G': 'G', 'Ab': 'Ab', 'A': 'A', 'Bb': 'Bb', 'B': 'B'
-  }
-
-  // Map degree roots to semitones from key
-  const degreeRoots = {
-    'I': 0, 'bII': 1, 'II': 2, 'bIII': 3, 'III': 4, 'IV': 5,
-    '#IV': 6, 'bV': 6, 'V': 7, 'bVI': 8, 'VI': 9, 'bVII': 10, 'VII': 11
-  }
-
-  // Parse degree to get root and quality
-  let rootDegree = ''
-  let quality = ''
-
-  // Handle complex degrees like "V7/ii", "bII7", "#IVdim7"
-  const match = degree.match(/^(b|#)?(I{1,3}|IV|V|VI{0,2})(.*?)(?:\/.*)?$/)
-
-  if (match) {
-    const accidental = match[1] || ''
-    const roman = match[2]
-    quality = match[3] || ''
-
-    rootDegree = accidental + roman
-  } else {
-    // Fallback - just use the degree as is
-    return degree
-  }
-
-  // Calculate root note
-  const keyIndex = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'].indexOf(key)
-  const rootOffset = degreeRoots[rootDegree] ?? 0
-  const noteIndex = (keyIndex + rootOffset) % 12
-  const notes = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
-  const rootNote = notes[noteIndex]
-
-  // Format quality for display
-  let displayQuality = quality
-    .replace('maj7', 'maj7')
-    .replace('m7b5', 'm7b5')
-    .replace('m7', 'm7')
-    .replace('m6', 'm6')
-    .replace('dim7', '°7')
-    .replace('7alt', '7alt')
-    .replace('7b13', '7b13')
-    .replace('7#11', '7#11')
-    .replace('7sus4', '7sus')
-
-  return rootNote + displayQuality
-}
-
-/**
- * Get full key name
- */
-function getKeyName(key) {
-  const keyNames = {
-    'C': 'C Major', 'Db': 'Db Major', 'D': 'D Major', 'Eb': 'Eb Major',
-    'E': 'E Major', 'F': 'F Major', 'Gb': 'Gb Major', 'G': 'G Major',
-    'Ab': 'Ab Major', 'A': 'A Major', 'Bb': 'Bb Major', 'B': 'B Major'
-  }
-  return keyNames[key] || key
-}
-
-/**
- * Download PDF file
+ * Download PDF
  */
 export function downloadPdf(options) {
   const doc = exportToPdf(options)
@@ -338,7 +454,7 @@ export function downloadPdf(options) {
 }
 
 /**
- * Generate filename for PDF
+ * Generate filename
  */
 export function generatePdfFilename(key, numBars, title = 'RameauJazz') {
   const date = new Date().toISOString().slice(0, 10)

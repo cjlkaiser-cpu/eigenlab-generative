@@ -25,9 +25,9 @@
 - [x] **Export MIDI** - Descargar progresión como archivo .mid
   - Incluir piano, bass y drums en tracks separados
   - Metadata (tempo, time signature, key)
-- [ ] **Export Audio** - Grabar y descargar como WAV/MP3
+- [x] **Export Audio** - Grabar y descargar como WAV
   - Usar Tone.Recorder
-  - Opciones de calidad (128kbps, 320kbps, WAV)
+  - Conversión WebM → WAV automática
 - [ ] **Export PDF** - Lead sheet con acordes
   - Integrar con jsPDF o similar
   - Formato Real Book style
@@ -240,7 +240,7 @@
 
 Prioridades actuales:
 1. ~~Export MIDI (v0.2.0)~~ ✅
-2. Export Audio WAV/MP3 (v0.2.0)
+2. ~~Export Audio WAV (v0.2.0)~~ ✅
 3. Guardar progresiones (v0.2.0)
 4. Edición manual de acordes (v0.3.0)
 

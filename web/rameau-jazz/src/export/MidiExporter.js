@@ -2,7 +2,6 @@
  * MidiExporter.js - Export progressions to Standard MIDI File
  *
  * Generates multi-track MIDI:
- * - Track 0: Metadata (tempo, time signature)
  * - Track 1: Piano chords (voicings)
  * - Track 2: Walking bass
  * - Track 3: Drums (optional)
@@ -38,10 +37,6 @@ const DRUM_MAP = {
 
 /**
  * Calculates root pitch for a degree in a key
- * @param {string} degree - Chord degree (e.g., 'Imaj7', 'IIm7')
- * @param {string} key - Key (e.g., 'C', 'Bb')
- * @param {number} baseOctave - Base MIDI octave
- * @returns {number} MIDI pitch
  */
 function getRootPitch(degree, key, baseOctave = 60) {
   const degreeInfo = JAZZ_DEGREES[degree]
@@ -52,14 +47,14 @@ function getRootPitch(degree, key, baseOctave = 60) {
 
 /**
  * Generates walking bass line for a measure
- * @param {object} currentChord - {degree, key}
- * @param {object} nextChord - {degree, key}
- * @returns {number[]} Array of 4 MIDI pitches
  */
-function generateBassLine(currentChord, nextChord) {
-  const rootPitch = getRootPitch(currentChord.degree, currentChord.key, 36) // C2
+function generateBassLine(currentChord, nextChord, key) {
+  const chordKey = currentChord.key || key
+  const nextChordKey = nextChord?.key || key
+
+  const rootPitch = getRootPitch(currentChord.degree, chordKey, 36) // C2
   const nextRootPitch = nextChord
-    ? getRootPitch(nextChord.degree, nextChord.key, 36)
+    ? getRootPitch(nextChord.degree, nextChordKey, 36)
     : rootPitch
 
   const chordType = JAZZ_DEGREES[currentChord.degree]?.type || 'maj7'
@@ -68,16 +63,16 @@ function generateBassLine(currentChord, nextChord) {
   // Beat 1: Root
   const beat1 = rootPitch
 
-  // Beat 2: Passing (scalar, arpeggio, or chromatic)
+  // Beat 2: Passing tone
   const rand2 = Math.random()
   let beat2
   if (rand2 < 0.4) {
-    beat2 = rootPitch + 2 // Major 2nd
+    beat2 = rootPitch + 2
   } else if (rand2 < 0.7) {
     const third = intervals.find(i => i === 3 || i === 4) || 4
     beat2 = rootPitch + third
   } else {
-    beat2 = rootPitch + 1 // Chromatic
+    beat2 = rootPitch + 1
   }
 
   // Beat 3: Target (5th or 3rd)
@@ -91,58 +86,14 @@ function generateBassLine(currentChord, nextChord) {
     beat3 = rootPitch + third
   }
 
-  // Beat 4: Chromatic approach to next root
+  // Beat 4: Chromatic approach
   const beat4 = nextRootPitch + (Math.random() < 0.5 ? 1 : -1)
 
   return [beat1, beat2, beat3, beat4]
 }
 
 /**
- * Generates drum pattern for a measure
- * @param {number} measureIndex - Current measure (for variation)
- * @returns {Array<{pitch: number, beat: number, velocity: number}>}
- */
-function generateDrumPattern(measureIndex) {
-  const pattern = []
-
-  // Ride on all beats
-  for (let beat = 0; beat < 4; beat++) {
-    pattern.push({
-      pitch: DRUM_MAP.ride,
-      beat: beat,
-      velocity: beat === 0 || beat === 2 ? 90 : 70
-    })
-  }
-
-  // Hi-hat on 2 and 4 (swing feel)
-  pattern.push({ pitch: DRUM_MAP.hihatClosed, beat: 1, velocity: 60 })
-  pattern.push({ pitch: DRUM_MAP.hihatClosed, beat: 3, velocity: 60 })
-
-  // Kick on 1 (occasionally on 3)
-  pattern.push({ pitch: DRUM_MAP.kick, beat: 0, velocity: 100 })
-  if (Math.random() < 0.3) {
-    pattern.push({ pitch: DRUM_MAP.kick, beat: 2, velocity: 70 })
-  }
-
-  // Snare ghost notes
-  if (Math.random() < 0.4) {
-    pattern.push({ pitch: DRUM_MAP.snare, beat: 2.5, velocity: 40 })
-  }
-
-  return pattern
-}
-
-/**
  * Main export function
- * @param {object} options - Export options
- * @param {Array<{degree: string, key: string}>} options.progression - Chord progression
- * @param {string} options.key - Main key
- * @param {number} options.tempo - BPM
- * @param {string} options.voicingStyle - Voicing style
- * @param {boolean} options.includeBass - Include bass track
- * @param {boolean} options.includeDrums - Include drums track
- * @param {string} options.filename - Output filename
- * @returns {Blob} MIDI file blob
  */
 export function exportToMidi({
   progression,
@@ -166,28 +117,33 @@ export function exportToMidi({
   pianoTrack.addTrackName('Piano')
   pianoTrack.setTempo(tempo)
   pianoTrack.setTimeSignature(4, 4)
-
-  // Add program change (Piano = 0)
   pianoTrack.addEvent(new MidiWriter.ProgramChangeEvent({ instrument: 1 }))
 
-  progression.forEach((chord, measureIndex) => {
+  progression.forEach((chord) => {
     const degreeInfo = JAZZ_DEGREES[chord.degree]
-    if (!degreeInfo) return
+    if (!degreeInfo) {
+      // Add rest for invalid chord
+      pianoTrack.addEvent(new MidiWriter.NoteEvent({
+        pitch: ['C4'],
+        duration: '1',
+        velocity: 0
+      }))
+      return
+    }
 
     const chordKey = chord.key || key
-    const rootPitch = getRootPitch(chord.degree, chordKey, 60) // C4
+    const rootPitch = getRootPitch(chord.degree, chordKey, 60)
     const chordType = degreeInfo.type
 
     // Get voicing
     const voicing = getVoicing(rootPitch, chordType, voicingStyle)
     const allNotes = [...voicing.left, ...voicing.right]
 
-    // Add chord on beat 1, duration = dotted half note (3 beats)
+    // Add chord - whole note duration for full measure
     pianoTrack.addEvent(new MidiWriter.NoteEvent({
       pitch: allNotes,
-      duration: 'd2', // Dotted half note
-      velocity: 80,
-      startTick: measureIndex * 480 * 4 // 480 ticks per quarter
+      duration: '1',
+      velocity: 80
     }))
   })
 
@@ -199,20 +155,18 @@ export function exportToMidi({
   if (includeBass) {
     const bassTrack = new MidiWriter.Track()
     bassTrack.addTrackName('Bass')
-
-    // Acoustic Bass = 32
     bassTrack.addEvent(new MidiWriter.ProgramChangeEvent({ instrument: 33 }))
 
     progression.forEach((chord, measureIndex) => {
       const nextChord = progression[(measureIndex + 1) % progression.length]
-      const bassLine = generateBassLine(chord, nextChord)
+      const bassLine = generateBassLine(chord, nextChord, key)
 
+      // Add each beat as quarter note
       bassLine.forEach((pitch, beatIndex) => {
         bassTrack.addEvent(new MidiWriter.NoteEvent({
           pitch: [pitch],
           duration: '4',
-          velocity: beatIndex === 0 ? 100 : 80,
-          startTick: (measureIndex * 4 + beatIndex) * 480
+          velocity: beatIndex === 0 ? 100 : 80
         }))
       })
     })
@@ -226,21 +180,39 @@ export function exportToMidi({
   if (includeDrums) {
     const drumTrack = new MidiWriter.Track()
     drumTrack.addTrackName('Drums')
-    drumTrack.addEvent(new MidiWriter.ProgramChangeEvent({ instrument: 1 }))
 
-    progression.forEach((_, measureIndex) => {
-      const pattern = generateDrumPattern(measureIndex)
+    progression.forEach(() => {
+      // Beat 1: Kick + Ride
+      drumTrack.addEvent(new MidiWriter.NoteEvent({
+        pitch: [DRUM_MAP.kick, DRUM_MAP.ride],
+        duration: '4',
+        velocity: 90,
+        channel: 10
+      }))
 
-      pattern.forEach(hit => {
-        const tickOffset = hit.beat * 480
-        drumTrack.addEvent(new MidiWriter.NoteEvent({
-          pitch: [hit.pitch],
-          duration: '8',
-          velocity: hit.velocity,
-          startTick: measureIndex * 4 * 480 + tickOffset,
-          channel: 10 // GM Drums
-        }))
-      })
+      // Beat 2: Hi-hat + Ride
+      drumTrack.addEvent(new MidiWriter.NoteEvent({
+        pitch: [DRUM_MAP.hihatClosed, DRUM_MAP.ride],
+        duration: '4',
+        velocity: 70,
+        channel: 10
+      }))
+
+      // Beat 3: Ride
+      drumTrack.addEvent(new MidiWriter.NoteEvent({
+        pitch: [DRUM_MAP.ride],
+        duration: '4',
+        velocity: 80,
+        channel: 10
+      }))
+
+      // Beat 4: Hi-hat + Ride
+      drumTrack.addEvent(new MidiWriter.NoteEvent({
+        pitch: [DRUM_MAP.hihatClosed, DRUM_MAP.ride],
+        duration: '4',
+        velocity: 70,
+        channel: 10
+      }))
     })
 
     tracks.push(drumTrack)
@@ -252,41 +224,30 @@ export function exportToMidi({
   const write = new MidiWriter.Writer(tracks)
   const midiData = write.buildFile()
 
-  // Create Blob
-  const blob = new Blob([midiData], { type: 'audio/midi' })
-
-  return blob
+  return new Blob([midiData], { type: 'audio/midi' })
 }
 
 /**
  * Download MIDI file
- * @param {object} options - Same as exportToMidi
  */
 export function downloadMidi(options) {
   const blob = exportToMidi(options)
   const filename = options.filename || 'RameauJazz'
 
-  // Create download link
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = `${filename}.mid`
 
-  // Trigger download
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
 
-  // Cleanup
   URL.revokeObjectURL(url)
 }
 
 /**
  * Generate filename from progression info
- * @param {string} key - Key
- * @param {number} numChords - Number of chords
- * @param {string} style - Style preset
- * @returns {string} Filename
  */
 export function generateFilename(key, numChords, style = 'jazz') {
   const timestamp = new Date().toISOString().slice(0, 10)

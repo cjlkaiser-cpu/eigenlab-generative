@@ -6,6 +6,7 @@
  *
  * v0.1: Acordes de 7a, shell voicings, ii-V-I
  * v0.2: Walking bass opcional
+ * v0.3: Blue Note style (double chromatic, enclosures, corcheas swing)
  *
  * Basado en el motor de Markov de RameauGenerator.
  */
@@ -19,7 +20,7 @@ MuseScore {
     id: plugin
     title: "Rameau Jazz"
     description: "Genera progresiones jazz con acordes de 7a y voicings"
-    version: "0.2.0"
+    version: "0.3.0"
     pluginType: "dialog"
 
     width: 400
@@ -102,8 +103,14 @@ MuseScore {
     property var bassStyles: ["Bloque (redonda)", "Walking (negras)"]
     property int selectedBassStyle: 0  // 0=bloque, 1=walking
 
-    property var walkingPatterns: ["Oleaje (realista)", "Escalar", "Arpegio", "Cromatico"]
+    // Patrones walking bass - Blue Note style
+    property var walkingPatterns: ["Blue Note (pro)", "Oleaje", "Escalar", "Cromatico"]
     property int selectedWalkingPattern: 0
+
+    // Probabilidades de variacion (estilo Blue Note)
+    property real probEighthNotes: 0.25      // 25% añade corcheas swing
+    property real probDoubleChromatic: 0.20  // 20% double chromatic approach
+    property real probEnclosure: 0.15        // 15% enclosure (arriba-abajo-target)
 
     // ========== ESTADO ==========
 
@@ -366,17 +373,24 @@ MuseScore {
         };
     }
 
-    // ========== WALKING BASS (v0.2) ==========
+    // ========== WALKING BASS (v0.3 - Blue Note) ==========
 
     /**
-     * Genera 4 notas de walking bass para un compas
-     * Reglas de jazz:
-     *   Beat 1: Root (fundamental) - ancla armonica
-     *   Beat 2: Nota de paso (escalar o arpegio)
-     *   Beat 3: Target note (5ª o 3ª) - importante armonicamente
-     *   Beat 4: Approach (semitono hacia siguiente root)
+     * Genera walking bass estilo Blue Note
+     * Devuelve array de {pitch, duration} donde duration es fraccion de compas
      *
-     * Movimiento suave: evitar saltos > 5ª (excepto octava)
+     * Tecnicas implementadas:
+     *   - Double chromatic approach (dos semitonos antes del target)
+     *   - Enclosure (nota arriba + nota abajo → target)
+     *   - Chromatic walkup (4 semitonos hacia target)
+     *   - Corcheas swing (entre beats 3-4)
+     *   - Variacion aleatoria constante
+     *
+     * Reglas de jazz:
+     *   Beat 1: Root (ancla armonica) - SIEMPRE
+     *   Beat 2: Nota de paso (2ª, 3ª, o cromatica)
+     *   Beat 3: Target harmonico (5ª, 3ª, o 7ª)
+     *   Beat 4: Approach cromatico (semitono hacia siguiente root)
      */
     function getWalkingBass(currentDegree, nextDegree, keyPitch, chordIndex) {
         var currentInfo = jazzDegrees[currentDegree] || jazzDegrees["Imaj7"];
@@ -388,121 +402,153 @@ MuseScore {
         var chordType = chordTypes[currentInfo.type];
         var intervals = chordType.intervals;
 
-        // Notas del acorde actual (en octava baja)
+        // Notas del acorde actual (octava baja C2-C3)
         var bassRoot = 36 + root;
-        var second = bassRoot + 2;    // 2ª mayor (escalar)
-        var third = bassRoot + intervals[1];  // 3ª (mayor o menor segun acorde)
-        var fourth = bassRoot + 5;    // 4ª justa
-        var fifth = bassRoot + intervals[2];  // 5ª
-        var sixth = bassRoot + 9;     // 6ª
-        var seventh = bassRoot + (intervals[3] || 10);  // 7ª
+        var second = bassRoot + 2;
+        var third = bassRoot + intervals[1];
+        var fourth = bassRoot + 5;
+        var fifth = bassRoot + intervals[2];
+        var sixth = bassRoot + 9;
+        var seventh = bassRoot + (intervals[3] || 10);
 
         // Target: root del siguiente acorde
         var targetBass = 36 + targetRoot;
 
-        // Ajustar target a octava cercana (movimiento suave)
-        while (targetBass < bassRoot - 6) targetBass += 12;
-        while (targetBass > bassRoot + 6) targetBass -= 12;
+        // Ajustar target a octava cercana (voice leading suave)
+        while (targetBass < bassRoot - 7) targetBass += 12;
+        while (targetBass > bassRoot + 7) targetBass -= 12;
 
-        // Approach: semitono arriba o abajo del target
-        // Elegir segun direccion del movimiento
-        var movingUp = targetBass >= bassRoot;
-        var approach = movingUp ? (targetBass - 1) : (targetBass + 1);
+        // Approach notes
+        var approachBelow = targetBass - 1;  // Semitono abajo
+        var approachAbove = targetBass + 1;  // Semitono arriba
+        var doubleBelow = targetBass - 2;    // Dos semitonos abajo
 
-        // Variacion aleatoria para evitar mecanicidad
-        var rand = Math.random();
+        // Direccion general del movimiento
+        var movingUp = targetBass > bassRoot;
+        var ascending = (chordIndex % 2 === 0);  // Alterna oleaje
 
-        var pattern;
+        // Randoms para variacion
+        var r1 = Math.random();
+        var r2 = Math.random();
+        var r3 = Math.random();
 
+        var notes = [];  // Array de {pitch, dur}
+
+        // ========== PATRON BLUE NOTE (pro) ==========
         if (selectedWalkingPattern === 0) {
-            // OLEAJE (realista) - alterna direccion + variacion
-            var ascending = (chordIndex % 2 === 0);
 
-            if (ascending) {
-                // Ascendente con variacion en beat 2
-                var beat2 = (rand < 0.5) ? second : third;  // Escalar o arpegio
-                var beat3 = fifth;  // Target harmonico
-                pattern = [bassRoot, beat2, beat3, approach];
+            // Beat 1: SIEMPRE root (ancla)
+            notes.push({ pitch: bassRoot, dur: 0.25 });
+
+            // Beat 2: Variacion (escalar, arpegio, o cromatico)
+            var beat2;
+            if (r1 < 0.4) {
+                beat2 = ascending ? second : (seventh - 12);  // Escalar
+            } else if (r1 < 0.7) {
+                beat2 = ascending ? third : (fifth - 12);     // Arpegio
             } else {
-                // Descendente
-                var lowSeventh = seventh - 12;
-                var lowSixth = sixth - 12;
-                var beat2 = (rand < 0.5) ? lowSeventh : lowSixth;
-                var lowFifth = fifth - 12;
-                pattern = [bassRoot, beat2, lowFifth, approach];
+                beat2 = ascending ? (bassRoot + 1) : (bassRoot - 1);  // Cromatico
+            }
+            notes.push({ pitch: beat2, dur: 0.25 });
+
+            // Beat 3: Target harmonico con variacion
+            var beat3;
+            if (r2 < 0.5) {
+                beat3 = ascending ? fifth : (third - 12);
+            } else if (r2 < 0.8) {
+                beat3 = ascending ? third : (seventh - 12);
+            } else {
+                beat3 = ascending ? seventh : (sixth - 12);
             }
 
-            // Ocasionalmente (20%) añadir cromatismo en beat 2
-            if (rand > 0.8) {
-                pattern[1] = ascending ? (bassRoot + 1) : (bassRoot - 1);
+            // ¿Corcheas swing en beat 3-4? (25% probabilidad)
+            if (r3 < probEighthNotes) {
+                // Dos corcheas en beat 3, luego approach
+                notes.push({ pitch: beat3, dur: 0.125 });
+
+                // Ghost note o passing tone entre beat 3 y 4
+                var ghost = (beat3 + (movingUp ? 1 : -1));
+                notes.push({ pitch: ghost, dur: 0.125 });
+
+                // Beat 4: approach
+                var approach = movingUp ? approachBelow : approachAbove;
+                notes.push({ pitch: approach, dur: 0.25 });
+
+            } else {
+                // Normal: negras
+                notes.push({ pitch: beat3, dur: 0.25 });
+
+                // Beat 4: Elegir tipo de approach
+                if (r2 < probDoubleChromatic) {
+                    // Double chromatic: dos semitonos
+                    notes[2].dur = 0.125;  // Beat 3 como corchea
+                    notes.push({ pitch: doubleBelow, dur: 0.125 });
+                    notes.push({ pitch: approachBelow, dur: 0.25 });
+                } else if (r2 < probDoubleChromatic + probEnclosure) {
+                    // Enclosure: arriba-abajo-target
+                    notes[2].dur = 0.125;
+                    notes.push({ pitch: approachAbove, dur: 0.125 });
+                    notes.push({ pitch: approachBelow, dur: 0.25 });
+                } else {
+                    // Simple chromatic approach
+                    var approach = movingUp ? approachBelow : approachAbove;
+                    notes.push({ pitch: approach, dur: 0.25 });
+                }
             }
 
+        // ========== OLEAJE (mas simple) ==========
         } else if (selectedWalkingPattern === 1) {
-            // ESCALAR - movimiento por grados de la escala
-            var ascending = (chordIndex % 2 === 0);
+
+            notes.push({ pitch: bassRoot, dur: 0.25 });
 
             if (ascending) {
-                // 1 → 2 → 3 → approach (o 1 → 2 → 4 → approach)
-                var beat3 = (rand < 0.6) ? third : fourth;
-                pattern = [bassRoot, second, beat3, approach];
+                var beat2 = (r1 < 0.5) ? second : third;
+                notes.push({ pitch: beat2, dur: 0.25 });
+                notes.push({ pitch: fifth, dur: 0.25 });
             } else {
-                // 1 → 7↓ → 6↓ → approach
-                var lowSeventh = seventh - 12;
-                var lowSixth = sixth - 12;
-                pattern = [bassRoot, lowSeventh, lowSixth, approach];
+                var beat2 = (r1 < 0.5) ? (seventh - 12) : (sixth - 12);
+                notes.push({ pitch: beat2, dur: 0.25 });
+                notes.push({ pitch: fifth - 12, dur: 0.25 });
             }
 
+            var approach = movingUp ? approachBelow : approachAbove;
+            notes.push({ pitch: approach, dur: 0.25 });
+
+        // ========== ESCALAR ==========
         } else if (selectedWalkingPattern === 2) {
-            // ARPEGIO - notas del acorde
-            var ascending = (chordIndex % 2 === 0);
+
+            notes.push({ pitch: bassRoot, dur: 0.25 });
 
             if (ascending) {
-                // 1 → 3 → 5 → approach
-                pattern = [bassRoot, third, fifth, approach];
+                notes.push({ pitch: second, dur: 0.25 });
+                notes.push({ pitch: third, dur: 0.25 });
             } else {
-                // 1 → 5↓ → 3↓ → approach
-                var lowFifth = fifth - 12;
-                var lowThird = third - 12;
-                pattern = [bassRoot, lowFifth, lowThird, approach];
+                notes.push({ pitch: seventh - 12, dur: 0.25 });
+                notes.push({ pitch: sixth - 12, dur: 0.25 });
             }
 
-            // Variacion: a veces usar 7ª en lugar de 5ª
-            if (rand > 0.7) {
-                pattern[2] = ascending ? seventh : (seventh - 12);
-            }
+            var approach = movingUp ? approachBelow : approachAbove;
+            notes.push({ pitch: approach, dur: 0.25 });
 
+        // ========== CROMATICO (chromatic walkup/down) ==========
         } else {
-            // CROMATICO - semitonos hacia el target
             var diff = targetBass - bassRoot;
-            var steps = Math.abs(diff);
             var dir = diff > 0 ? 1 : -1;
 
-            if (steps <= 4) {
-                // Cromatico directo
-                pattern = [
-                    bassRoot,
-                    bassRoot + dir,
-                    bassRoot + dir * 2,
-                    approach
-                ];
-            } else {
-                // Mixto: escalar + cromatico al final
-                pattern = [
-                    bassRoot,
-                    bassRoot + dir * 2,  // Tono
-                    approach - dir,      // Dos semitonos antes
-                    approach
-                ];
-            }
+            // Chromatic 4: root + 3 semitonos hacia target
+            notes.push({ pitch: bassRoot, dur: 0.25 });
+            notes.push({ pitch: bassRoot + dir, dur: 0.25 });
+            notes.push({ pitch: bassRoot + dir * 2, dur: 0.25 });
+            notes.push({ pitch: targetBass - dir, dur: 0.25 });  // Approach
         }
 
         // Asegurar rango valido (C2-G3 = 36-55)
-        for (var i = 0; i < pattern.length; i++) {
-            while (pattern[i] < 36) pattern[i] += 12;
-            while (pattern[i] > 55) pattern[i] -= 12;
+        for (var i = 0; i < notes.length; i++) {
+            while (notes[i].pitch < 36) notes[i].pitch += 12;
+            while (notes[i].pitch > 55) notes[i].pitch -= 12;
         }
 
-        return pattern;
+        return notes;
     }
 
     // ========== UI ==========
@@ -794,11 +840,21 @@ MuseScore {
                     cursorLH.addNote(voicing.lh[l], true);
                 }
             } else {
-                // Walking bass (4 negras)
+                // Walking bass con duraciones variables (Blue Note style)
                 var walkingNotes = getWalkingBass(prog[i], nextDegree, keyPitch, i);
-                cursorLH.setDuration(1, 4);  // Negra
+
                 for (var w = 0; w < walkingNotes.length; w++) {
-                    cursorLH.addNote(walkingNotes[w], false);
+                    var note = walkingNotes[w];
+
+                    // Convertir duracion fraccionaria a MuseScore
+                    // 0.25 = negra (1/4), 0.125 = corchea (1/8)
+                    if (note.dur >= 0.25) {
+                        cursorLH.setDuration(1, 4);  // Negra
+                    } else {
+                        cursorLH.setDuration(1, 8);  // Corchea
+                    }
+
+                    cursorLH.addNote(note.pitch, false);
                 }
             }
 

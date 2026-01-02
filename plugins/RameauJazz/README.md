@@ -4,7 +4,7 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 
 ## Estado
 
-**Version:** 0.2.0 (Alpha)
+**Version:** 0.3.0 (Alpha)
 
 ## Caracteristicas
 
@@ -38,26 +38,51 @@ Generador de progresiones **jazz** para piano en MuseScore 4.
 ### Implementado (v0.2.0)
 
 - Walking bass como opcion de output
-- 4 patrones de walking: Oleaje, Escalar, Arpegio, Cromatico
 - Aproximaciones al siguiente acorde (look-ahead)
 - Selector de estilo de bajo (Bloque vs Walking)
 
+### Implementado (v0.3.0) - Blue Note Style
+
+- Patron **Blue Note (pro)** con tecnicas profesionales
+- **Double chromatic approach**: dos semitonos antes del target
+- **Enclosure**: nota arriba + abajo → target
+- **Corcheas swing**: 25% de compases con subdivision
+- **Ghost notes**: notas de paso entre beats 3-4
+- Variacion aleatoria constante para evitar mecanicidad
+- 4 patrones: Blue Note, Oleaje, Escalar, Cromatico
+
 #### Patrones Walking Bass
 
-Todos los patrones siguen las reglas de jazz:
-- **Beat 1**: Root (ancla armonica)
-- **Beat 2**: Nota de paso (escalar/arpegio)
-- **Beat 3**: Target note (5ª o 3ª)
-- **Beat 4**: Approach (semitono hacia siguiente root)
+Todos los patrones siguen las reglas clasicas de jazz:
+- **Beat 1**: Root (ancla armonica) - SIEMPRE
+- **Beat 2**: Nota de paso (2ª, 3ª, o cromatica)
+- **Beat 3**: Target harmonico (5ª, 3ª, o 7ª)
+- **Beat 4**: Approach cromatico (semitono hacia siguiente root)
 
-| Patron | Descripcion | Comportamiento |
-|--------|-------------|----------------|
-| **Oleaje (realista)** | Alterna ↑/↓ + variacion | Beat 2 varia (2ª/3ª), 20% cromatismo |
-| **Escalar** | Grados de la escala | ↑: 1→2→3→app, ↓: 1→7→6→app |
-| **Arpegio** | Notas del acorde | ↑: 1→3→5→app, ↓: 1→5→3→app, 30% usa 7ª |
-| **Cromatico** | Semitonos hacia target | Movimiento cromatico directo |
+| Patron | Descripcion | Tecnicas |
+|--------|-------------|----------|
+| **Blue Note (pro)** | Estilo profesional | Double chromatic, enclosures, corcheas swing |
+| **Oleaje** | Alterna ↑/↓ | Variacion en beat 2, approach simple |
+| **Escalar** | Grados de escala | 1→2→3→app o 1→7→6→app |
+| **Cromatico** | Chromatic walkup | 4 semitonos hacia target |
 
-El patron **Oleaje** es el mas realista - alterna direccion cada acorde con variacion aleatoria para evitar mecanicidad.
+#### Blue Note Style (v0.3)
+
+El patron **Blue Note** implementa tecnicas de bajistas profesionales:
+
+| Tecnica | Probabilidad | Descripcion |
+|---------|--------------|-------------|
+| **Corcheas swing** | 25% | Dos corcheas en beat 3-4 con ghost note |
+| **Double chromatic** | 20% | Dos semitonos antes del target (ej: D-Db-C) |
+| **Enclosure** | 15% | Nota arriba + nota abajo → target |
+| **Variacion beat 2** | 100% | Alterna entre escalar (40%), arpegio (30%), cromatico (30%) |
+
+Ejemplo de linea Blue Note en Dm7 → G7:
+```
+Beat:    1       2       3    &    4
+Notas:   D       E       A    Bb   F#   (con corcheas en 3-&)
+         root   escalar  5ª  ghost  approach
+```
 
 ### Progresiones tipicas generadas
 
@@ -145,11 +170,18 @@ Turnarounds:
 
 - [x] Linea de bajo en negras (4 por compas)
 - [x] Reglas de jazz: Beat1=root, Beat2=paso, Beat3=target, Beat4=approach
-- [x] Oleaje realista con variacion aleatoria (20% cromatismo)
-- [x] Patrones: Oleaje, Escalar, Arpegio, Cromatico
-- [x] Movimiento suave (evita saltos grandes)
+- [x] Patrones basicos: Oleaje, Escalar, Cromatico
 
-### v0.3.0 - Ritmo
+### v0.3.0 - Blue Note Style ✓
+
+- [x] Patron Blue Note (pro) con tecnicas profesionales
+- [x] Double chromatic approach (20%)
+- [x] Enclosure: nota arriba + abajo → target (15%)
+- [x] Corcheas swing con ghost notes (25%)
+- [x] Variacion aleatoria en beat 2 (escalar/arpegio/cromatico)
+- [x] Duraciones mixtas (negras + corcheas)
+
+### v0.4.0 - Ritmo
 
 - [ ] Comping patterns (ritmos de acompanamiento)
 - [ ] Charleston, anticipaciones
@@ -206,5 +238,6 @@ Turnarounds:
 
 ## Changelog
 
+- **02 ene 2026**: v0.3.0 - Blue Note style: double chromatic, enclosures, corcheas swing
 - **02 ene 2026**: v0.2.0 - Walking bass con 4 patrones y aproximaciones
 - **02 ene 2026**: v0.1.0 - Version inicial con voicings shell/drop2/rootless

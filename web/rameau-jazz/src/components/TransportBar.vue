@@ -7,9 +7,19 @@
       <button class="btn btn-icon" :class="isPlaying ? 'btn-secondary' : 'btn-success'" @click="togglePlay" :title="isPlaying ? 'Pause' : 'Play'">
         <span class="icon">{{ isPlaying ? '&#10074;&#10074;' : '&#9654;' }}</span>
       </button>
-      <button class="btn btn-secondary" @click="generate" title="Generate new progression">
-        Generar
-      </button>
+      <div class="generate-group">
+        <select v-model="measureCount" class="measure-select" title="Number of measures">
+          <option :value="4">4</option>
+          <option :value="8">8</option>
+          <option :value="12">12</option>
+          <option :value="16">16</option>
+          <option :value="24">24</option>
+          <option :value="32">32</option>
+        </select>
+        <button class="btn btn-secondary" @click="generate" title="Generate new progression">
+          Generar
+        </button>
+      </div>
       <div class="export-dropdown" ref="exportDropdown">
         <button
           class="btn btn-secondary export-btn"
@@ -40,6 +50,12 @@
           <button class="export-option" @click="exportAudio" :disabled="isRecording">
             <span class="option-icon">{{ isRecording ? '&#9899;' : '&#127908;' }}</span>
             {{ isRecording ? 'Grabando...' : 'Grabar WAV' }}
+          </button>
+          <div class="export-divider"></div>
+          <div class="export-section-label">PDF</div>
+          <button class="export-option" @click="exportPdfSheet">
+            <span class="option-icon">&#128214;</span>
+            Lead Sheet (Real Book)
           </button>
         </div>
       </div>
@@ -93,6 +109,7 @@ import {
   downloadAudio,
   generateAudioFilename
 } from '../export/AudioExporter.js'
+import { downloadPdf, generatePdfFilename } from '../export/PdfExporter.js'
 
 const harmonyStore = useHarmonyStore()
 
@@ -107,6 +124,9 @@ const hasProgression = computed(() => harmonyStore.progression.length > 0)
 const showExportMenu = ref(false)
 const exportDropdown = ref(null)
 const isRecording = ref(false)
+
+// Measure count for generation
+const measureCount = ref(8)
 
 // Tap tempo state
 const tapTimes = ref([])
@@ -126,7 +146,7 @@ function stop() {
 }
 
 function generate() {
-  harmonyStore.generateProgression(8)
+  harmonyStore.generateProgression(measureCount.value)
 }
 
 function increaseTempo() {
@@ -233,6 +253,30 @@ function exportMidiFull() {
   showExportMenu.value = false
 }
 
+function exportPdfSheet() {
+  const filename = generatePdfFilename(
+    harmonyStore.key,
+    harmonyStore.progression.length,
+    'RameauJazz'
+  )
+
+  downloadPdf({
+    progression: harmonyStore.progression,
+    title: 'RameauJazz Progression',
+    key: harmonyStore.key,
+    tempo: harmonyStore.tempo,
+    style: harmonyStore.stylePreset === 'bossaNova' ? 'Bossa Nova' :
+           harmonyStore.stylePreset === 'bebop' ? 'Bebop' :
+           harmonyStore.stylePreset === 'ballad' ? 'Ballad' :
+           harmonyStore.stylePreset === 'modal' ? 'Modal' : 'Swing',
+    composer: 'RameauJazz',
+    barsPerLine: 4,
+    filename
+  })
+
+  showExportMenu.value = false
+}
+
 async function exportAudio() {
   if (isRecording.value) return
 
@@ -307,6 +351,37 @@ onUnmounted(() => {
 
 .icon {
   font-size: 12px;
+}
+
+/* Generate Group */
+.generate-group {
+  display: flex;
+  gap: 0;
+}
+
+.measure-select {
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-right: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: 'SF Mono', Monaco, monospace;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 50px;
+  text-align: center;
+}
+
+.measure-select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.generate-group .btn {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 /* Tempo Control */

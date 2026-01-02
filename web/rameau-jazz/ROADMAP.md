@@ -28,9 +28,9 @@
 - [x] **Export Audio** - Grabar y descargar como WAV
   - Usar Tone.Recorder
   - Conversión WebM → WAV automática
-- [ ] **Export PDF** - Lead sheet con acordes
-  - Integrar con jsPDF o similar
-  - Formato Real Book style
+- [x] **Export PDF** - Lead sheet con acordes
+  - jsPDF con formato Real Book style
+  - Staff lines + chord symbols + slashes
 
 #### Persistence
 - [x] **Guardar progresiones** - LocalStorage
@@ -243,8 +243,8 @@ Prioridades actuales:
 1. ~~Export MIDI (v0.2.0)~~ ✅
 2. ~~Export Audio WAV (v0.2.0)~~ ✅
 3. ~~Guardar progresiones (v0.2.0)~~ ✅
-4. Edición manual de acordes (v0.3.0)
-5. Export PDF Lead Sheet (v0.2.0)
+4. ~~Export PDF Lead Sheet (v0.2.0)~~ ✅
+5. Edición manual de acordes (v0.3.0)
 
 ---
 

@@ -14,7 +14,7 @@ eigenlab-generative/      → Plugins de PARTITURA (MuseScore, QML/JS)
 | Plugin | Version | Instrumento | Estado |
 |--------|---------|-------------|--------|
 | [RameauGenerator](plugins/RameauGenerator/) | 0.2.0 | SATB (4 voces) | Funcional |
-| [RameauGuitar](plugins/RameauGuitar/) | 0.1.0 | Guitarra clasica | Alpha |
+| [RameauGuitar](plugins/RameauGuitar/) | 0.3.0 | Guitarra clasica | Funcional |
 | [RameauPiano](plugins/RameauPiano/) | 0.1.0 | Piano (grand staff) | Alpha |
 
 ## Instalacion
@@ -55,8 +55,10 @@ Generador de progresiones para guitarra clasica.
 **Caracteristicas:**
 - Un solo pentagrama
 - Voicings adaptados a guitarra (max 4 notas)
-- Rango E2-C5
+- Rango E2-E5
 - Tonalidades guitarristicas: E, A, D, G, C, Am, Em, Dm
+- **Validacion de voicings** (span <= 4 trastes)
+- **Opciones de salida:** bloque, arpegio, patron p-i-m-a-m-i
 
 **Uso:** Crear partitura de guitarra (1 pentagrama)
 
@@ -122,7 +124,7 @@ Ver [ROADMAP.md](ROADMAP.md) para el plan completo.
 | Plugin | Siguiente version |
 |--------|-------------------|
 | RameauGenerator | v0.3 - Honestidad en nombres |
-| RameauGuitar | v0.2 - Validacion de voicings tocables |
+| RameauGuitar | v0.4 - Posiciones CAGED |
 | RameauPiano | v0.2 - Duplicacion de octavas |
 
 ### Plugins futuros

@@ -3,6 +3,8 @@
  *
  * Genera progresiones armonicas con voicings idiomaticos de guitarra.
  * Un solo pentagrama, maximo 4 notas por acorde.
+ * v0.2: Validacion de voicings tocables (span de trastes)
+ * v0.3: Opciones de salida (bloque, arpegios)
  *
  * Basado en el motor de Markov de RameauGenerator.
  */
@@ -16,23 +18,42 @@ MuseScore {
     id: plugin
     title: "Rameau Guitar"
     description: "Genera progresiones armonicas para guitarra clasica"
-    version: "0.1.0"
+    version: "0.3.0"
     pluginType: "dialog"
 
     width: 380
-    height: 520
+    height: 600
 
     // ========== CONSTANTES GUITARRA ==========
 
     // Rango de la guitarra clasica (E2 = 40 a B5 = 83, pero usamos rango practico)
     property int guitarMin: 40   // E2 (cuerda 6 al aire)
-    property int guitarMax: 72   // C5 (traste 8, cuerda 1)
+    property int guitarMax: 76   // E5 (traste 12, cuerda 1)
+
+    // Cuerdas: [cuerda 6 (grave) ... cuerda 1 (aguda)]
+    // Cada cuerda: { open: MIDI al aire, maxFret: traste maximo practico }
+    property var guitarStrings: ([
+        { open: 40, maxFret: 12 },  // Cuerda 6: E2
+        { open: 45, maxFret: 12 },  // Cuerda 5: A2
+        { open: 50, maxFret: 12 },  // Cuerda 4: D3
+        { open: 55, maxFret: 12 },  // Cuerda 3: G3
+        { open: 59, maxFret: 12 },  // Cuerda 2: B3
+        { open: 64, maxFret: 12 }   // Cuerda 1: E4
+    ])
 
     // Cuerdas al aire (E2, A2, D3, G3, B3, E4)
     property var openStrings: [40, 45, 50, 55, 59, 64]
 
-    // Maximo span de trastes para acordes comodos (4 trastes)
-    property int maxFretSpan: 5  // 5 semitonos = ~4 trastes
+    // Maximo span de trastes para acordes comodos
+    property int maxFretSpan: 4  // 4 trastes (ej: trastes 1-4 o 5-8)
+
+    // ========== OPCIONES DE SALIDA ==========
+
+    property var outputModes: ["Bloque", "Arpegio ↑", "Arpegio ↓", "p-i-m-a-m-i"]
+    property int selectedOutputMode: 0  // 0=bloque, 1=asc, 2=desc, 3=patron
+
+    property var baseDurations: ["Negra", "Corchea", "Semicorchea"]
+    property int selectedDuration: 1  // 0=negra, 1=corchea, 2=semicorchea
 
     // ========== DATOS DE ACORDES ==========
 
@@ -264,6 +285,238 @@ MuseScore {
         return -1;  // No encontrado
     }
 
+    // ========== VALIDACION DE DIGITACION (v0.2) ==========
+
+    /**
+     * Asigna cada nota MIDI a una cuerda de guitarra
+     * Retorna: array de { midi, string, fret } o null si imposible
+     */
+    function assignStrings(voicing) {
+        var sorted = voicing.slice().sort(function(a, b) { return a - b; });
+        var assignment = [];
+
+        // Intentar asignar cada nota a una cuerda, de grave a aguda
+        var usedStrings = [];
+
+        for (var i = 0; i < sorted.length; i++) {
+            var midi = sorted[i];
+            var assigned = false;
+
+            // Buscar cuerda disponible que pueda tocar esta nota
+            for (var s = 0; s < guitarStrings.length; s++) {
+                if (usedStrings.indexOf(s) >= 0) continue;  // Cuerda ya usada
+
+                var openNote = guitarStrings[s].open;
+                var maxFret = guitarStrings[s].maxFret;
+
+                // ¿Puede esta cuerda tocar esta nota?
+                if (midi >= openNote && midi <= openNote + maxFret) {
+                    var fret = midi - openNote;
+                    assignment.push({ midi: midi, string: s, fret: fret });
+                    usedStrings.push(s);
+                    assigned = true;
+                    break;
+                }
+            }
+
+            if (!assigned) {
+                return null;  // No se puede tocar esta nota
+            }
+        }
+
+        return assignment;
+    }
+
+    /**
+     * Verifica si un voicing es tocable (span <= maxFretSpan)
+     * Retorna: { valid: bool, span: int, minFret: int, maxFret: int, assignment: array }
+     */
+    function validateVoicing(voicing) {
+        var assignment = assignStrings(voicing);
+        if (!assignment) {
+            return { valid: false, reason: "Nota fuera de rango" };
+        }
+
+        // Calcular span (ignorando cuerdas al aire, fret 0)
+        var frettedNotes = assignment.filter(function(a) { return a.fret > 0; });
+
+        if (frettedNotes.length === 0) {
+            // Todas al aire - siempre valido
+            return { valid: true, span: 0, minFret: 0, maxFret: 0, assignment: assignment, allOpen: true };
+        }
+
+        var frets = frettedNotes.map(function(a) { return a.fret; });
+        var minFret = Math.min.apply(null, frets);
+        var maxFret = Math.max.apply(null, frets);
+        var span = maxFret - minFret;
+
+        return {
+            valid: span <= maxFretSpan,
+            span: span,
+            minFret: minFret,
+            maxFret: maxFret,
+            assignment: assignment,
+            reason: span > maxFretSpan ? "Span " + span + " trastes (max " + maxFretSpan + ")" : null
+        };
+    }
+
+    /**
+     * Genera un voicing tocable para guitarra con validacion
+     */
+    function getValidGuitarVoicing(chordName, keyPitch, attempts) {
+        attempts = attempts || 0;
+        if (attempts > 10) {
+            // Fallback: usar voicing simple aunque no sea ideal
+            return getSimpleVoicing(chordName, keyPitch);
+        }
+
+        var voicing = getGuitarVoicing(chordName, keyPitch);
+        var validation = validateVoicing(voicing);
+
+        if (validation.valid) {
+            return { voicing: voicing, validation: validation };
+        }
+
+        // Intentar ajustar: subir notas graves o bajar agudas
+        var adjusted = adjustVoicingForPlayability(voicing, chordName, keyPitch);
+        if (adjusted) {
+            validation = validateVoicing(adjusted);
+            if (validation.valid) {
+                return { voicing: adjusted, validation: validation };
+            }
+        }
+
+        // Ultimo recurso: voicing simple
+        return { voicing: getSimpleVoicing(chordName, keyPitch), validation: { valid: true, simplified: true } };
+    }
+
+    /**
+     * Intenta ajustar voicing para que sea tocable
+     */
+    function adjustVoicingForPlayability(voicing, chordName, keyPitch) {
+        var chords = getChords();
+        var chord = chords[chordName];
+        if (!chord) return null;
+
+        var root = (chord.root + keyPitch) % 12;
+        var third = (chord.third + keyPitch) % 12;
+        var fifth = (chord.fifth + keyPitch) % 12;
+        var pitchClasses = [root, third, fifth];
+
+        // Estrategia: buscar posicion comun en el mastil
+        // Probar posiciones: abierta (0-4), II (2-5), V (5-9), VII (7-11)
+        var positions = [0, 2, 5, 7];
+
+        for (var p = 0; p < positions.length; p++) {
+            var basePos = positions[p];
+            var newVoicing = buildVoicingAtPosition(pitchClasses, basePos, root);
+            if (newVoicing && newVoicing.length >= 3) {
+                var val = validateVoicing(newVoicing);
+                if (val.valid) {
+                    return newVoicing;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Construye voicing en una posicion especifica del mastil
+     */
+    function buildVoicingAtPosition(pitchClasses, basePosition, rootPitch) {
+        var voicing = [];
+        var usedStrings = [];
+
+        // Primero: encontrar bajo (fundamental en cuerdas graves)
+        for (var s = 0; s < 3; s++) {  // Solo cuerdas 6, 5, 4
+            var openNote = guitarStrings[s].open;
+            for (var fret = basePosition; fret <= basePosition + maxFretSpan && fret <= 12; fret++) {
+                var midi = openNote + fret;
+                if (midi % 12 === rootPitch) {
+                    voicing.push(midi);
+                    usedStrings.push(s);
+                    break;
+                }
+            }
+            if (voicing.length > 0) break;
+        }
+
+        if (voicing.length === 0) return null;
+
+        // Luego: añadir resto de notas en cuerdas disponibles
+        for (var pc = 0; pc < pitchClasses.length && voicing.length < 4; pc++) {
+            var pitchClass = pitchClasses[pc];
+            if (pitchClass === rootPitch && voicing.length > 0) continue;  // Ya tenemos el bajo
+
+            for (var str = 0; str < guitarStrings.length && voicing.length < 4; str++) {
+                if (usedStrings.indexOf(str) >= 0) continue;
+
+                var open = guitarStrings[str].open;
+                for (var f = Math.max(0, basePosition - 1); f <= basePosition + maxFretSpan && f <= 12; f++) {
+                    var note = open + f;
+                    if (note % 12 === pitchClass && note > voicing[voicing.length - 1]) {
+                        voicing.push(note);
+                        usedStrings.push(str);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Duplicar fundamental si hay espacio
+        if (voicing.length < 4) {
+            for (var ds = usedStrings[usedStrings.length - 1] + 1; ds < guitarStrings.length; ds++) {
+                var dopen = guitarStrings[ds].open;
+                for (var df = Math.max(0, basePosition - 1); df <= basePosition + maxFretSpan && df <= 12; df++) {
+                    var dnote = dopen + df;
+                    if (dnote % 12 === rootPitch && dnote > voicing[voicing.length - 1]) {
+                        voicing.push(dnote);
+                        break;
+                    }
+                }
+                if (voicing.length >= 4) break;
+            }
+        }
+
+        return voicing.length >= 3 ? voicing : null;
+    }
+
+    /**
+     * Voicing simplificado de emergencia (power chord o triada basica)
+     */
+    function getSimpleVoicing(chordName, keyPitch) {
+        var chords = getChords();
+        var chord = chords[chordName];
+        if (!chord) return [40, 47, 52];
+
+        var root = (chord.root + keyPitch) % 12;
+        var fifth = (chord.fifth + keyPitch) % 12;
+
+        // Buscar fundamental en cuerda 6 o 5
+        var bass = -1;
+        for (var m = 40; m <= 50; m++) {
+            if (m % 12 === root) {
+                bass = m;
+                break;
+            }
+        }
+        if (bass < 0) bass = 40 + root;
+
+        // Power chord: root + fifth + octave
+        var fifthNote = bass + 7;  // Quinta justa
+        var octave = bass + 12;
+
+        return [bass, fifthNote, octave];
+    }
+
+    /**
+     * Verifica si una nota es cuerda al aire
+     */
+    function isOpenString(midi) {
+        return openStrings.indexOf(midi) >= 0;
+    }
+
     // ========== UI ==========
 
     Rectangle {
@@ -410,6 +663,45 @@ MuseScore {
                 }
             }
 
+            Rectangle { Layout.fillWidth: true; height: 1; color: "#3d3d5c" }
+
+            // Opciones de salida (v0.3)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Tipo de salida"; font.pixelSize: 11; color: "#b8a88a" }
+                    ComboBox {
+                        id: outputCombo
+                        Layout.fillWidth: true
+                        model: outputModes
+                        currentIndex: 0
+                        onCurrentIndexChanged: selectedOutputMode = currentIndex
+                        background: Rectangle { color: "#2d2d44"; radius: 4 }
+                        contentItem: Text { text: outputCombo.currentText; color: "#e8d5b7"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text { text: "Duracion base"; font.pixelSize: 11; color: "#b8a88a" }
+                    ComboBox {
+                        id: durationCombo
+                        Layout.fillWidth: true
+                        model: baseDurations
+                        currentIndex: 1
+                        enabled: selectedOutputMode > 0  // Solo para arpegios
+                        onCurrentIndexChanged: selectedDuration = currentIndex
+                        background: Rectangle { color: enabled ? "#2d2d44" : "#1d1d2e"; radius: 4 }
+                        contentItem: Text { text: durationCombo.currentText; color: enabled ? "#e8d5b7" : "#5b5b6b"; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
+            }
+
             // Info guitarra
             Rectangle {
                 Layout.fillWidth: true
@@ -422,19 +714,19 @@ MuseScore {
                     spacing: 16
 
                     Text {
-                        text: "Rango: E2-C5"
+                        text: "Rango: E2-E5"
                         font.pixelSize: 10
                         color: "#8b7355"
                     }
                     Text {
-                        text: "Max 4 notas"
+                        text: "Span ≤" + maxFretSpan + " trastes"
                         font.pixelSize: 10
-                        color: "#8b7355"
+                        color: "#81b29a"
                     }
                     Text {
-                        text: "1 pentagrama"
+                        text: "Voicings validados"
                         font.pixelSize: 10
-                        color: "#8b7355"
+                        color: "#81b29a"
                     }
                 }
             }
@@ -521,16 +813,28 @@ MuseScore {
         var cursor = curScore.newCursor();
         cursor.track = 0;
         cursor.rewind(0);
-        cursor.setDuration(1, 1);  // Redonda
+
+        // Determinar duraciones segun modo
+        var baseDur = getDurationValues();
 
         for (var i = 0; i < prog.length; i++) {
-            var voicing = getGuitarVoicing(prog[i], keyPitch);
+            // Usar nuevo sistema de voicing con validacion
+            var result = getValidGuitarVoicing(prog[i], keyPitch);
+            var voicing = result.voicing || getGuitarVoicing(prog[i], keyPitch);
 
-            // Escribir acorde (primera nota sin addToChord, resto con addToChord)
-            cursor.addNote(voicing[0], false);
-
-            for (var v = 1; v < voicing.length; v++) {
-                cursor.addNote(voicing[v], true);
+            // Escribir segun modo de salida
+            if (selectedOutputMode === 0) {
+                // Bloque: acorde completo
+                writeBlockChord(cursor, voicing);
+            } else if (selectedOutputMode === 1) {
+                // Arpegio ascendente
+                writeArpeggio(cursor, voicing, false, baseDur);
+            } else if (selectedOutputMode === 2) {
+                // Arpegio descendente
+                writeArpeggio(cursor, voicing, true, baseDur);
+            } else if (selectedOutputMode === 3) {
+                // Patron p-i-m-a-m-i
+                writePattern(cursor, voicing, baseDur);
             }
         }
 
@@ -541,7 +845,74 @@ MuseScore {
         for (var j = 0; j < prog.length; j++) {
             chordNames.push(degreeToChordName(prog[j], selectedKey));
         }
-        previewText.text = chordNames.join(" → ");
+        var modeStr = outputModes[selectedOutputMode];
+        previewText.text = modeStr + ": " + chordNames.join(" → ");
         previewText.color = "#81b29a";
+    }
+
+    /**
+     * Obtiene valores de duracion para setDuration
+     */
+    function getDurationValues() {
+        // selectedDuration: 0=negra, 1=corchea, 2=semicorchea
+        if (selectedDuration === 0) {
+            return { num: 1, den: 4 };   // Negra
+        } else if (selectedDuration === 1) {
+            return { num: 1, den: 8 };   // Corchea
+        } else {
+            return { num: 1, den: 16 };  // Semicorchea
+        }
+    }
+
+    /**
+     * Escribe acorde en bloque (redonda)
+     */
+    function writeBlockChord(cursor, voicing) {
+        cursor.setDuration(1, 1);  // Redonda
+        cursor.addNote(voicing[0], false);
+        for (var v = 1; v < voicing.length; v++) {
+            cursor.addNote(voicing[v], true);
+        }
+    }
+
+    /**
+     * Escribe arpegio (ascendente o descendente)
+     */
+    function writeArpeggio(cursor, voicing, descending, dur) {
+        var notes = voicing.slice();
+        if (descending) {
+            notes.reverse();
+        }
+
+        cursor.setDuration(dur.num, dur.den);
+        for (var i = 0; i < notes.length; i++) {
+            cursor.addNote(notes[i], false);
+        }
+    }
+
+    /**
+     * Escribe patron p-i-m-a-m-i (6 notas por acorde)
+     * p = pulgar (bajo), i = indice, m = medio, a = anular
+     */
+    function writePattern(cursor, voicing, dur) {
+        // Asegurar que tenemos al menos 4 notas
+        while (voicing.length < 4) {
+            voicing.push(voicing[voicing.length - 1]);
+        }
+
+        // Patron: p-i-m-a-m-i = bajo, voz1, voz2, voz3, voz2, voz1
+        var pattern = [
+            voicing[0],  // p (bajo)
+            voicing[1],  // i
+            voicing[2],  // m
+            voicing[3],  // a
+            voicing[2],  // m
+            voicing[1]   // i
+        ];
+
+        cursor.setDuration(dur.num, dur.den);
+        for (var i = 0; i < pattern.length; i++) {
+            cursor.addNote(pattern[i], false);
+        }
     }
 }

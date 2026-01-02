@@ -4,12 +4,22 @@
     <header class="app-header">
       <h1 class="app-title">RameauJazz</h1>
       <div class="header-controls">
+        <button class="btn btn-secondary save-btn" @click="showSavedProgressions = true">
+          <span class="save-icon">&#128190;</span>
+          Guardadas
+        </button>
         <StylePresets />
         <div class="tempo-control">
           <span class="tempo-value">{{ harmonyStore.tempo }} BPM</span>
         </div>
       </div>
     </header>
+
+    <!-- Saved Progressions Modal -->
+    <SavedProgressions
+      :isOpen="showSavedProgressions"
+      @close="showSavedProgressions = false"
+    />
 
     <!-- Main Content -->
     <main class="app-main">
@@ -70,6 +80,7 @@ import StylePresets from './components/StylePresets.vue'
 import MixerPanel from './components/MixerPanel.vue'
 import ProgressionDisplay from './components/ProgressionDisplay.vue'
 import TensionMeter from './components/TensionMeter.vue'
+import SavedProgressions from './components/SavedProgressions.vue'
 
 // Visualization
 import ForceGraph from './visualization/ForceGraph.vue'
@@ -77,6 +88,9 @@ import PianoRoll from './visualization/PianoRoll.vue'
 import CircleOfFifths from './visualization/CircleOfFifths.vue'
 
 const harmonyStore = useHarmonyStore()
+
+// Saved progressions modal
+const showSavedProgressions = ref(false)
 
 // Piano roll resize
 const pianoRollHeight = ref(180)
@@ -150,6 +164,16 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.save-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.save-icon {
+  font-size: 14px;
 }
 
 .tempo-control {

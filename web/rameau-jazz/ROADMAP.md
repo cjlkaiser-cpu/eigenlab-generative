@@ -33,9 +33,10 @@
   - Formato Real Book style
 
 #### Persistence
-- [ ] **Guardar progresiones** - LocalStorage
-  - Nombre, fecha, descripción
+- [x] **Guardar progresiones** - LocalStorage
+  - Nombre, fecha, key, tempo, estilo
   - Lista de progresiones guardadas
+  - Import/Export JSON
 - [ ] **Presets personalizados** - Configuraciones de usuario
   - Guardar combinaciones de parámetros
   - Importar/exportar presets como JSON
@@ -241,8 +242,9 @@
 Prioridades actuales:
 1. ~~Export MIDI (v0.2.0)~~ ✅
 2. ~~Export Audio WAV (v0.2.0)~~ ✅
-3. Guardar progresiones (v0.2.0)
+3. ~~Guardar progresiones (v0.2.0)~~ ✅
 4. Edición manual de acordes (v0.3.0)
+5. Export PDF Lead Sheet (v0.2.0)
 
 ---
 
